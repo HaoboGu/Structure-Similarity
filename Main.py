@@ -6,7 +6,7 @@ from rdkit.Chem.Fingerprints import FingerprintMols
 import os
 import time
 import xlrd
-import xlwt
+import xlsxwriter
 import random
 
 
@@ -143,12 +143,12 @@ for d1 in data:
     for d2 in data:
         if d1 != d2:
             result.append([d1.ID, d2.ID, S.getSimilarity([d1.mol, d2.mol])])
-# for test in dp.test_set:
+# for test in dp.test_set
 #     for vali in dp.validation_set:
 #         result.append([test.ID, vali.ID, S.getSimilarity([test.mol, vali.mol])])
 
-wb = xlwt.Workbook(encoding='ascii')
-sheet1 = wb.add_sheet('Data')
+wb = xlsxwriter.Workbook('sim.xlsx')
+sheet1 = wb.add_worksheet('Data')
 sheet1.write(0, 0, 'Drug1 ID')
 sheet1.write(0, 1, 'Drug2 ID')
 sheet1.write(0, 2, 'Similarity')
@@ -158,7 +158,8 @@ for item in result:
     sheet1.write(row, 1, item[1])
     sheet1.write(row, 2, item[2])
     row += 1
-wb.save('sim.xls')
+#wb.save('sim.xls')
+wb.close()
 
 end = time.time()
 print(end - start)
