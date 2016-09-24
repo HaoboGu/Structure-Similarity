@@ -5,16 +5,15 @@ from rdkit.Chem import AllChem
 from rdkit.Chem.Fingerprints import FingerprintMols
 import os
 import time
-import xlrd
+# import xlrd
 import xlsxwriter
 import random
 
 
 class Similarity:
-    p = {'MACCS': 0.25, 'ECFP4': 0.25, 'FCFP4': 0.25, 'Topo': 0.25, 'target': 0, 'mechanism': 0}  # weights of similarities
-
-    def __init__(self, p):
-        self.p = p  # p is a dict, represents weights of similarities
+    def __init__(self):
+        # p: weights of similarities  # p is a dict, represents weights of similarities
+        self.p = {'MACCS': 0.25, 'ECFP4': 0.25, 'FCFP4': 0.25, 'Topo': 0.25, 'target': 0, 'mechanism': 0}
 
     def SimilarityMACCS(self, m):  # compute similarity using MACCS fingerprint
         fp1 = MACCSkeys.GenMACCSKeys(m[0])
@@ -78,7 +77,7 @@ class DataPreprocessing:
         self.__ReadMolFiles()
         self.__DivideData()
 
-    def RealData(self):
+    def ReadData(self):
         self.__ReadMolFiles()
         return self.validation_set
 
@@ -92,74 +91,69 @@ class Validation:
         self.test_set = dp.test_set
         self.pairs = {}
         self.similarities = {}
+        self.data = []
 
-    def FindPairs(self):  # Find the most similar drugs of test_set in validation_set
-        p = {'MACCS': 0.25, 'ECFP4': 0.25, 'FCFP4': 0.25, 'Topo': 0.25, 'target': 0, 'mechanism': 0}
-        S = Similarity(p)
-        for tested_drug in self.test_set:
-            sim = 0
-            for known_drug in self.validation_set:
-                tmp = S.getSimilarity([tested_drug.mol, known_drug.mol])
-                if tmp > sim:
-                    sim = tmp
-                    self.pairs[tested_drug.ID] = known_drug.ID
-            self.similarities[tested_drug.ID] = sim
+    def WriteSimilarites(self):
+        dp = DataPreprocessing()
+        data = dp.ReadData()
+        S = Similarity()
+        result = []
+        # compute similarity
+        for d1 in data:
+            for d2 in data:
+                if d1 != d2:
+                    result.append([d1.ID, d2.ID, S.SimilarityTopo([d1.mol, d2.mol]),
+                                   S.SimilarityECFP4([d1.mol, d2.mol]), S.SimilarityFCFP4([d1.mol, d2.mol]),
+                                   S.SimilarityMACCS([d1.mol, d2.mol]), S.getSimilarity([d1.mol, d2.mol])])
 
-        # self.pairs = dict(zip(drug1, drug2))
+        print(result)  # result is the table of similaries
 
-###################################### Main script #############################################
+        # Write the result to .txt file
+        f = open('result.txt', 'w')
+        for item in result:
+            tmp = ''.join([str(i) + ' ' for i in item])
+            f.write(tmp + '\n')
+        f.close()
 
+    def ReadSimilarities(self):
+        self.data = []
+        file = open('result')
+        while 1:
+            line = file.readline()
+            if not line:
+                break
+            self.data.append(line.split())
+        return self.data
 
-
-
-
-start = time.time()
-p = {'MACCS': 0.25, 'ECFP4': 0.25, 'FCFP4': 0.25, 'Topo': 0.25, 'target': 0, 'mechanism': 0}  # weights of similarities
-#data = xlrd.open_workbook('interactions.xlsx')
-#sheet = data.sheet_by_index(0)
-# V = Validation()
-# V.FindPairs()
-
-# write excel
-# wb = xlwt.Workbook(encoding='ascii')
-# sheet1 = wb.add_sheet('Data')
-# sheet1.write(0, 0, 'Tested drug')
-# sheet1.write(0, 1, 'Most similar drug')
-# sheet1.write(0, 2, 'Similarity')
-# for row, caption in enumerate(V.pairs):
-#     sheet1.write(row+1, 0, caption)
-#     sheet1.write(row+1, 1, V.pairs[caption])
-#     sheet1.write(row+1, 2, V.similarities[caption])
-# wb.save('pairs.xls')
-
-dp = DataPreprocessing()
-# dp.Processing()
-data = dp.RealData()
-S = Similarity(p)
+    def FindConflict(self, drugID):  # Find similar drugs of a drug
+        conflict = []
+        for item in self.data:
+            if item[0] == drugID and item[6] > 0.5:  # temporary 0.5, a more concise criterion is needed
+                print(item)
+                conflict.append(item)
 
 
-result = []
-for d1 in data:
-    for d2 in data:
-        if d1 != d2:
-            result.append([d1.ID, d2.ID, S.getSimilarity([d1.mol, d2.mol])])
-# for test in dp.test_set
-#     for vali in dp.validation_set:
-#         result.append([test.ID, vali.ID, S.getSimilarity([test.mol, vali.mol])])
+################## Generate Similarities #################
 
-wb = xlsxwriter.Workbook('sim.xlsx')
-sheet1 = wb.add_worksheet('Data')
-sheet1.write(0, 0, 'Drug1 ID')
-sheet1.write(0, 1, 'Drug2 ID')
-sheet1.write(0, 2, 'Similarity')
-row = 1
-for item in result:
-    sheet1.write(row, 0, item[0])
-    sheet1.write(row, 1, item[1])
-    sheet1.write(row, 2, item[2])
-    row += 1
-#wb.save('sim.xls')
-wb.close()
 
-end = time.time()
-print(end - start)
+# Write the result to .xlsx file
+# wb = xlsxwriter.Workbook('similarites.xlsx')
+# sheet1 = wb.add_worksheet('Data')
+# sheet1.write(0, 0, 'Drug1 ID')  # table structure
+# sheet1.write(0, 1, 'Drug2 ID')
+# sheet1.write(0, 2, 'Similarity1')
+# sheet1.write(0, 3, 'Similarity2')
+# sheet1.write(0, 4, 'Similarity3')
+# sheet1.write(0, 5, 'Similarity4')
+# sheet1.write(0, 6, 'Weighted Similarity')
+# row = 1
+# for item in result:
+#     sheet1.write(row, 0, item[0])
+#     sheet1.write(row, 1, item[1])
+#     sheet1.write(row, 2, item[2])
+#     sheet1.write(row, 3, item[3])
+#     sheet1.write(row, 4, item[4])
+#     sheet1.write(row, 5, item[5])
+#     sheet1.write(row, 6, item[6])
+#     row += 1
+# wb.close()
