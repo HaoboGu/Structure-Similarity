@@ -1,0 +1,6 @@
+id
+medicine1_id
+medicine1_name
+medicine2_id
+medicine2_name
+interaction_level
