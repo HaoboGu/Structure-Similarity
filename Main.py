@@ -7,8 +7,6 @@ from rdkit.Chem import AllChem
 from rdkit.Chem.Fingerprints import FingerprintMols
 import os
 # import time
-# import xlrd
-# import xlsxwriter
 import random
 
 
@@ -175,35 +173,3 @@ class Validation:
 sims = SimOperation.sim_table()
 SimOperation.write_similarities(sims)
 
-file = open('comp.txt', encoding='utf-8')
-comp = []
-while 1:
-    line = file.readline()
-    if not line:
-        break
-    table = line.split()
-    comp.append(table)
-
-
-
-# Write the result to .xlsx file
-# wb = xlsxwriter.Workbook('similarites.xlsx')
-# sheet1 = wb.add_worksheet('Data')
-# sheet1.write(0, 0, 'Drug1 ID')  # table structure
-# sheet1.write(0, 1, 'Drug2 ID')
-# sheet1.write(0, 2, 'Similarity1')
-# sheet1.write(0, 3, 'Similarity2')
-# sheet1.write(0, 4, 'Similarity3')
-# sheet1.write(0, 5, 'Similarity4')
-# sheet1.write(0, 6, 'Weighted Similarity')
-# row = 1
-# for item in result:
-#     sheet1.write(row, 0, item[0])
-#     sheet1.write(row, 1, item[1])
-#     sheet1.write(row, 2, item[2])
-#     sheet1.write(row, 3, item[3])
-#     sheet1.write(row, 4, item[4])
-#     sheet1.write(row, 5, item[5])
-#     sheet1.write(row, 6, item[6])
-#     row += 1
-# wb.close()

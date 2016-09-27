@@ -9,8 +9,9 @@ data/
 # C extensions
 *.so
 
-# result.txt
+# TXT files
 result.txt
+interactions.txt
 
 # Distribution / packaging
 .Python

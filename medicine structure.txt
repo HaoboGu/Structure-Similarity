@@ -1,6 +1,0 @@
-id
-medicine_name
-component
-drug_website
-chembl_website
-molregno
