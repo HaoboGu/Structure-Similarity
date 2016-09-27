@@ -1,3 +1,6 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:b8f3852a94592c7c64e6dbba27db9c3e534f02ae41e561e0a7efd53173455ca6
-size 80
+CMedc _ID
+Cmedc_name
+Cmedc_word_id
+component
+description
+description_chinese
