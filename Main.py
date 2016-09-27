@@ -87,7 +87,7 @@ class SimOperation:  # compute similarities, read/write sims, create sim_table
                                    cls.similarity_fcfp4([d1.mol, d2.mol]),
                                    cls.similarity_topo([d1.mol, d2.mol]),
                                    cls.get_similarity([d1.mol, d2.mol])])
-                print d2.ID
+                # print d2.ID
         return result
 
     @staticmethod
@@ -123,8 +123,8 @@ class Similarity:
         self.topo = table[5]
         self.weighted_sim = table[6]
 
-    def printsim(self):
-        print self.drug1_id, self.drug2_id, self.maccs, self.ecfp4, self.fcfp4, self.topo, self.weighted_sim
+    # def printsim(self):
+    #     print self.drug1_id, self.drug2_id, self.maccs, self.ecfp4, self.fcfp4, self.topo, self.weighted_sim
 
 
 class Medicine:  # Medicine used to read mol files
@@ -214,8 +214,8 @@ while 1:
     med = ChnMed(row)
     chn_med.append(med)
 
-print chn_med[0]
-print chn_med[1]
+# print chn_med[0]
+# print chn_med[1]
 # read western medicine data
 wst_med_file = open('WMedc.txt')
 wst_med = []
