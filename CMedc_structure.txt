@@ -1,0 +1,6 @@
+CMedc ID
+Cmedc name
+Cmedc word id
+component
+description
+description chinese

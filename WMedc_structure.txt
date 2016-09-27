@@ -1,0 +1,4 @@
+id
+medicine_name
+component
+molregno
