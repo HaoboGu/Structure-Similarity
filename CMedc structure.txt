@@ -1,0 +1,6 @@
+CMedc _ID
+Cmedc_name
+Cmedc_word_id
+component
+description
+description_chinese
