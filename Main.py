@@ -1,7 +1,7 @@
 # -*- coding:utf-8 -*-
 
 from rdkit import Chem
-from rdkit.DataStructs import cDataStructs as ds
+from rdkit.DataStructs import cDataStructs
 from rdkit.Chem import MACCSkeys
 from rdkit.Chem import AllChem
 from rdkit.Chem.Fingerprints import FingerprintMols
@@ -17,11 +17,11 @@ def read_molfiles():
     data_set = []
     for i in range(0, num):
         filename = path + '/' + folders[i] + '/molfile.txt'
-        data_set.append(Drug(folders[i], Chem.MolFromMolFile(filename)))
+        data_set.append(Medicine(folders[i], Chem.MolFromMolFile(filename)))
     return data_set
 
 
-class SimOperation:
+class SimOperation:  # compute similarities, read/write sims, create sim_table
     p = {'maccs': 0.25, 'ecfp4': 0.25, 'fcfp4': 0.25, 'topo': 0.25, 'target': 0, 'mechanism': 0}
 
     @classmethod
@@ -39,25 +39,25 @@ class SimOperation:
     def similarity_maccs(m):  # compute similarity using MACCS fingerprint
         fp1 = MACCSkeys.GenMACCSKeys(m[0])
         fp2 = MACCSkeys.GenMACCSKeys(m[1])
-        return ds.TanimotoSimilarity(fp1, fp2)
+        return cDataStructs.TanimotoSimilarity(fp1, fp2)
 
     @staticmethod
     def similarity_ecfp4(m):  # ECFP4 fingerprint
         fp1 = AllChem.GetMorganFingerprint(m[0], 2)  # 2 is the radius of the atom environments considered
         fp2 = AllChem.GetMorganFingerprint(m[1], 2)
-        return ds.TanimotoSimilarity(fp1, fp2)
+        return cDataStructs.TanimotoSimilarity(fp1, fp2)
 
     @staticmethod
     def similarity_fcfp4(m):  # FCFP4 fingerprint
         fp1 = AllChem.GetMorganFingerprint(m[0], 2, useFeatures=True)
         fp2 = AllChem.GetMorganFingerprint(m[1], 2, useFeatures=True)
-        return ds.TanimotoSimilarity(fp1, fp2)
+        return cDataStructs.TanimotoSimilarity(fp1, fp2)
 
     @staticmethod
     def similarity_topo(m):  # Topological Fingerprints
         fp1 = FingerprintMols.FingerprintMol(m[0])
         fp2 = FingerprintMols.FingerprintMol(m[1])
-        return ds.TanimotoSimilarity(fp1, fp2)
+        return cDataStructs.TanimotoSimilarity(fp1, fp2)
 
     @staticmethod
     def read_similarities():
@@ -127,10 +127,10 @@ class Similarity:
         print(self.drug1_id, self.drug2_id, self.maccs, self.ecfp4, self.fcfp4, self.topo, self.weighted_sim)
 
 
-class Drug:
+class Medicine:  # Medicine used to read mol files
 
-    def __init__(self, drug_id, mol):
-        self.ID = drug_id
+    def __init__(self, med_id, mol):
+        self.ID = med_id
         self.mol = mol
 
 
@@ -144,13 +144,13 @@ class Validation:
 
     def divide_data(self):
         self.test_set = []
-        self.validation_set = []
-        index = random.sample(range(0, 1366), 136)  # randomly select 1/10 data as test_set
-        for i in range(0, self.drug.__len__()):
-            if i not in index:
-                self.validation_set.append(self.data[i])
-            else:
-                self.test_set.append(self.data[i])
+        # self.validation_set = []
+        # index = random.sample(range(0, 1366), 136)  # randomly select 1/10 data as test_set
+        # for i in range(0, self.drug.__len__()):
+        #     if i not in index:
+        #         self.validation_set.append(self.data[i])
+        #     else:
+        #         self.test_set.append(self.data[i])
 
     def find_conflict(self, drug_id):  # Find similar drugs of a drug
         conflict = []
@@ -163,6 +163,36 @@ class Validation:
         return
 
 
+class ChnMed:  # Chinese medicine class
+
+    def __init__(self, lst):
+        self.id = lst[0]
+        self.chn_name = lst[1]
+        self.chn_word_id = lst[2]
+        self.component = lst[3]
+        self.description = lst[4]
+        self.chn_description = lst[5]
+
+
+class WstMed:  # Western medicine class
+
+    def __init__(self, lst):
+        self.id = lst[0]
+        self.name = lst[1]
+        self.component = lst[2]
+        self.molregno = lst[3]
+
+
+class Interaction:  # interaction between western medicines
+
+    def __init__(self, lst):
+        self.id = lst[0]
+        self.medicine_id1 = lst[1]
+        self.medicine_name1 = lst[2]
+        self.medicine_id2 = lst[3]
+        self.medicine_name2 = lst[4]
+        self.interaction_level = lst[5]
+
 # drugs = read_molfiles()
 # sims = SimOperation.read_similarities()
 # v = Validation(drugs, sims)
@@ -170,6 +200,39 @@ class Validation:
 
 ################# Generate Similarities #################
 
-sims = SimOperation.sim_table()
-SimOperation.write_similarities(sims)
+# sims = SimOperation.sim_table()
+# SimOperation.write_similarities(sims)
+
+# read chinese medicine data
+chn_med_file = open('CMedc.txt')
+chn_med = []
+while 1:
+    line = chn_med_file.readline()
+    if not line:
+        break
+    row = line.split()
+    med = ChnMed(row)
+    chn_med.append(med)
+
+# read western medicine data
+wst_med_file = open('WMedc.txt')
+wst_med = []
+while 1:
+    line = wst_med_file.readline()
+    if not line:
+        break
+    row = line.split()
+    med = WstMed(row)
+    wst_med.append(med)
+
+# read interaction data
+interaction_file = open('interactions.txt')
+interactions = []
+while 1:
+    line = interaction_file.readline()
+    if not line:
+        break
+    row = line.split()
+    inter = Interaction(row)
+    interactions.append(inter)
 

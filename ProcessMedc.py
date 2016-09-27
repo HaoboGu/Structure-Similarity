@@ -20,7 +20,6 @@ def ProcessCMedc():
     file.close()
 
 
-
 def ProcessInteraction():
     wb = xlrd.open_workbook('data/interactions.xlsx')
     sheet = wb.sheet_by_index(0)
