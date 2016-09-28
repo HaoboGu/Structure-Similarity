@@ -5,6 +5,7 @@ __pycache__/
 
 #Pycharm folder
 .idea/
+.idea/dictionaries/
 
 # Data
 data/
