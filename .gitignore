@@ -3,9 +3,12 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+#Pycharm folder
+.idea/
+
 # Data
 data/
-medicine_structure
+medicine_structure/
 
 # C extensions
 *.so

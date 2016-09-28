@@ -165,13 +165,15 @@ class Validation:
             if item.medicine_id1 == med1_id and item.medicine_id2 == med2_id:
                 return item.interaction_level
         return -1
+
+
     def conflict_index(self, med1_id, med2_id): 
         # Just compute the conflict index between 2 medicines
         conflict = []
         sim = self.__get_similarity(med1_id, med2_id)
-        print 'sim:', sim
+        # print 'sim:', sim
         interaction_level = self.__get_interaction_level(med1_id, med2_id)
-        print 'inter_level', interaction_level
+        # print 'inter_level', interaction_level
         conflict_index = sim * interaction_level
         # TODO: The meaning of doing this? Without Chinese medicine, should we
         # find the most similar medicine then predict whether it conflict with
@@ -192,14 +194,60 @@ class ChnMed:  # Chinese medicine class
         self.description = lst[4]
         self.chn_description = lst[5]
 
+    # read chinese medicine data
+    @staticmethod
+    def read_chn_med():
+        chn_med_file = open('CMedc.txt')
+        chn_med = []
+        while 1:
+            line = chn_med_file.readline()
+            if not line:
+                break
+            row = line.split()
+            med = ChnMed(row)
+            chn_med.append(med)
+        chn_med_file.close()
+        return chn_med
+
+    def wst_table(self):
+        return str(self.id) + ' ' + str(self.chn_name) + ' ' + str(self.chn_word_id) + ' ' +\
+               str(self.component) + ' ' + str(self.description) + ' ' + str(self.chn_description)
+
+    @staticmethod
+    def write_chn_med(chn_med):
+        file = open('CMedc1.txt', 'w')
+        for item in chn_med:
+            line = item.wst_table()
+            file.write(line + '\n')
+        file.close()
+
 
 class WstMed:  # Western medicine class
 
     def __init__(self, lst):
-        self.id = lst[0]
+        self.id = lst[0]  # drugs.com id
         self.name = lst[1]
         self.component = lst[2]
-        self.molregno = lst[3]
+        self.molregno = lst[3]  # CHEMBL id
+        self.smiles = lst[4]  # store medicine's SMILES notation, rather than mol object
+
+    def wst_table(self):
+        return str(int(float(self.id))) + ' ' + str(self.name) + ' ' + str(self.component) + ' ' + str(int(float(self.molregno))) + ' ' + str(self.smiles)
+
+    @staticmethod
+    # read western medicine data
+    def read_wstmed():
+        wst_med_file = open('WMedc.txt')
+        wst_med = []
+        while 1:
+            line = wst_med_file.readline()
+            if not line:
+                break
+            row = line.split()
+            med = WstMed(row)
+            wst_med.append(med)
+        wst_med_file.close()
+        return wst_med
 
 
 class Interaction:  # interaction between western medicines
@@ -212,56 +260,29 @@ class Interaction:  # interaction between western medicines
         self.medicine_name2 = lst[4]
         self.interaction_level = lst[5]
 
+    # read interaction data
+    @staticmethod
+    def read_interactions():
+        interaction_file = open('interactions.txt')
+        interactions = []
+        while 1:
+            line = interaction_file.readline()
+            if not line:
+                break
+            row = line.split()
+            inter = Interaction(row)
+            interactions.append(inter)
+        interaction_file.close()
+        return interactions
 
-# read chinese medicine data
-def read_chnmed():
-    chn_med_file = open('CMedc.txt')
-    chn_med = []
-    while 1:
-        line = chn_med_file.readline()
-        if not line:
-            break
-        row = line.split()
-        med = ChnMed(row)
-        chn_med.append(med)
-    chn_med_file.close()
-    return chn_med
+# similarities = SimOperation.read_similarities()
+# interactions = read_interactions()
+# medicine = read_molfiles()
+# v = Validation(medicine, similarities, interactions)
+# v.divide_data()
+# c_index = v.conflict_index(v.test_set[0].ID, v.validation_set[0].ID)
+# # print c_index
 
-# read western medicine data
-def read_wstmed():
-    wst_med_file = open('WMedc.txt')
-    wst_med = []
-    while 1:
-        line = wst_med_file.readline()
-        if not line:
-            break
-        row = line.split()
-        med = WstMed(row)
-        wst_med.append(med)
-    wst_med_file.close()
-    return wst_med
-
-# read interaction data
-def read_interactions():
-    interaction_file = open('interactions.txt')
-    interactions = []
-    while 1:
-        line = interaction_file.readline()
-        if not line:
-            break
-        row = line.split()
-        inter = Interaction(row)
-        interactions.append(inter)
-    interaction_file.close()
-    return interactions
-
-similarities = SimOperation.read_similarities()
-interactions = read_interactions()
-medicine = read_molfiles()
-v = Validation(medicine, similarities, interactions)
-v.divide_data()
-c_index = v.conflict_index(v.test_set[0].ID, v.validation_set[0].ID)
-print c_index
 
 
 ################# Generate Similarities #################

@@ -2,8 +2,7 @@
 
 import xlrd
 
-
-def ProcessCMedc():
+def process_chn_med():
     wb = xlrd.open_workbook('data/CMedc.xls')
     sheet = wb.sheet_by_index(0)
     chn_med = []
@@ -20,7 +19,7 @@ def ProcessCMedc():
     file.close()
 
 
-def ProcessInteraction():
+def process_interaction():
     wb = xlrd.open_workbook('data/interactions.xlsx')
     sheet = wb.sheet_by_index(0)
     interactions = []
@@ -35,7 +34,9 @@ def ProcessInteraction():
         file.write(line + '\n')
     file.close()
 
-def ProcessWstMedc():
+
+def process_wst_med():
+    # IMPORTANT: not compatible with the newest version, no SMILES attribute in this function
     wb = xlrd.open_workbook('data/WMedc.xls')
     sheet = wb.sheet_by_index(0)
     wst_med = []
@@ -48,8 +49,3 @@ def ProcessWstMedc():
         line = ''.join([str(s) + ' ' for s in item])
         file.write(line + '\n')
     file.close()
-
-
-# ProcessCMedc()
-# ProcessInteraction()
-# ProcessWstMedc()
