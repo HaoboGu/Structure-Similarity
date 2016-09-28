@@ -62,15 +62,16 @@ class SimOperation:  # compute similarities, read/write sims, create sim_table
     @staticmethod
     def read_similarities():
         similarities = []
-        file = open('result.txt')
+        sim_file = open('result.txt')
         while 1:
             s = Similarity()
-            line = file.readline()
+            line = sim_file.readline()
             if not line:
                 break
             s.from_simtable(line.split())
             # s.print()
             similarities.append(s)
+        sim_file.close()
         return similarities
 
     @classmethod
@@ -136,29 +137,47 @@ class Medicine:  # Medicine used to read mol files
 
 class Validation:
 
-    def __init__(self, drug, similarities):
-        self.drug = drug
+    def __init__(self, wst_med, similarities, interaction):
+        self.wst_med = wst_med
         self.sim = similarities
+        self.interaction = interaction
         self.test_set = []
         self.validation_set = []
 
     def divide_data(self):
         self.test_set = []
-        # self.validation_set = []
-        # index = random.sample(range(0, 1366), 136)  # randomly select 1/10 data as test_set
-        # for i in range(0, self.drug.__len__()):
-        #     if i not in index:
-        #         self.validation_set.append(self.data[i])
-        #     else:
-        #         self.test_set.append(self.data[i])
+        self.validation_set = []
+        index = random.sample(range(0, 1366), 136)  # randomly select 1/10 data as test_set
+        for i in range(0, self.wst_med.__len__()):
+            if i not in index:
+                self.validation_set.append(self.wst_med[i])
+            else:
+                self.test_set.append(self.wst_med[i])
 
-    def find_conflict(self, drug_id):  # Find similar drugs of a drug
-        conflict = []
+    def __get_similarity(self, med1_id, med2_id):
         for item in self.sim:
-            if item.drug1_id == drug_id and item.weighted_sim > 0.5:  # temporary , a more concise criterion is needed
-                item.printsim()
-                conflict.append(item)
+            if item.drug1_id == med1_id and item.drug2_id == med2_id:
+                return item.weighted_sim
+        return -1
 
+    def __get_interaction_level(self, med1_id, med2_id):
+        for item in self.interaction:
+            if item.medicine_id1 == med1_id and item.medicine_id2 == med2_id:
+                return item.interaction_level
+        return -1
+    def conflict_index(self, med1_id, med2_id): 
+        # Just compute the conflict index between 2 medicines
+        conflict = []
+        sim = self.__get_similarity(med1_id, med2_id)
+        print 'sim:', sim
+        interaction_level = self.__get_interaction_level(med1_id, med2_id)
+        print 'inter_level', interaction_level
+        conflict_index = sim * interaction_level
+        # TODO: The meaning of doing this? Without Chinese medicine, should we
+        # find the most similar medicine then predict whether it conflict with
+        # a known medicine? 
+        return conflict_index
+    
     def compute_CI(self, drug1, drug2):  # CI: Conflict Index
         return
 
@@ -193,48 +212,58 @@ class Interaction:  # interaction between western medicines
         self.medicine_name2 = lst[4]
         self.interaction_level = lst[5]
 
-# drugs = read_molfiles()
-# sims = SimOperation.read_similarities()
-# v = Validation(drugs, sims)
+
+# read chinese medicine data
+def read_chnmed():
+    chn_med_file = open('CMedc.txt')
+    chn_med = []
+    while 1:
+        line = chn_med_file.readline()
+        if not line:
+            break
+        row = line.split()
+        med = ChnMed(row)
+        chn_med.append(med)
+    chn_med_file.close()
+    return chn_med
+
+# read western medicine data
+def read_wstmed():
+    wst_med_file = open('WMedc.txt')
+    wst_med = []
+    while 1:
+        line = wst_med_file.readline()
+        if not line:
+            break
+        row = line.split()
+        med = WstMed(row)
+        wst_med.append(med)
+    wst_med_file.close()
+    return wst_med
+
+# read interaction data
+def read_interactions():
+    interaction_file = open('interactions.txt')
+    interactions = []
+    while 1:
+        line = interaction_file.readline()
+        if not line:
+            break
+        row = line.split()
+        inter = Interaction(row)
+        interactions.append(inter)
+    interaction_file.close()
+    return interactions
+
+similarities = SimOperation.read_similarities()
+interactions = read_interactions()
+medicine = read_molfiles()
+v = Validation(medicine, similarities, interactions)
+v.divide_data()
+c_index = v.conflict_index(v.test_set[0].ID, v.validation_set[0].ID)
+print c_index
 
 
 ################# Generate Similarities #################
-
 # sims = SimOperation.sim_table()
 # SimOperation.write_similarities(sims)
-
-# read chinese medicine data
-chn_med_file = open('CMedc.txt')
-chn_med = []
-while 1:
-    line = chn_med_file.readline()
-    if not line:
-        break
-    row = line.split()
-    med = ChnMed(row)
-    chn_med.append(med)
-
-# print chn_med[0]
-# print chn_med[1]
-# read western medicine data
-wst_med_file = open('WMedc.txt')
-wst_med = []
-while 1:
-    line = wst_med_file.readline()
-    if not line:
-        break
-    row = line.split()
-    med = WstMed(row)
-    wst_med.append(med)
-
-# read interaction data
-interaction_file = open('interactions.txt')
-interactions = []
-while 1:
-    line = interaction_file.readline()
-    if not line:
-        break
-    row = line.split()
-    inter = Interaction(row)
-    interactions.append(inter)
-
