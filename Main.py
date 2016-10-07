@@ -5,9 +5,9 @@ import random
 
 
 class Similarity:
-    def __init__(self, drug1_id=0, drug2_id=0, maccs=0, fcfp4=0, ecfp4=0, topo=0, weighted_sim=0):
-        self.drug1_id = drug1_id
-        self.drug2_id = drug2_id
+    def __init__(self, med_id1=0, med_id2=0, maccs=0, fcfp4=0, ecfp4=0, topo=0, weighted_sim=0):
+        self.med_molregno1 = med_id1
+        self.med_molregno2 = med_id2
         self.maccs = maccs
         self.ecfp4 = ecfp4
         self.fcfp4 = fcfp4
@@ -15,16 +15,16 @@ class Similarity:
         self.weighted_sim = weighted_sim
 
     def get_simtable(self):
-        return [self.drug1_id, self.drug2_id, self.maccs, self.ecfp4, self.fcfp4, self.topo, self.weighted_sim]
+        return [self.med_molregno1, self.med_molregno2, self.maccs, self.ecfp4, self.fcfp4, self.topo, self.weighted_sim]
 
     def from_simtable(self, table):
-        self.drug1_id = table[0]
-        self.drug2_id = table[1]
-        self.maccs = table[2]
-        self.ecfp4 = table[3]
-        self.fcfp4 = table[4]
-        self.topo = table[5]
-        self.weighted_sim = table[6]
+        self.med_molregno1 = table[0]
+        self.med_molregno2 = table[1]
+        self.maccs = float(table[2])
+        self.ecfp4 = float(table[3])
+        self.fcfp4 = float(table[4])
+        self.topo = float(table[5])
+        self.weighted_sim = float(table[6])
 
     @staticmethod
     def read_similarities():
@@ -180,30 +180,40 @@ class Validation:
                 return item.interaction_level
         return -1
 
-    def conflict_index(self, med1_id, med2_id): 
-        # Just compute the conflict index between 2 medicines
-        conflict = []
-        sim = self.__get_similarity(med1_id, med2_id)
-        # print 'sim:', sim
-        interaction_level = self.__get_interaction_level(med1_id, med2_id)
-        # print 'inter_level', interaction_level
-        conflict_index = sim * interaction_level
-        # Meaning of doing this? Without Chinese medicine, should we
-        # find the most similar medicine then predict whether it conflict with
-        # a known medicine? 
-        return conflict_index
+    def find_pair(self, med_molregno1):
+        # return most similar med_molregno2
+        max_sim = 0
+        # pair_med = WstMed([0,0,0,0,0,0])
+        for sim_item in self.sim:
+            if sim_item.med_molregno1 == med_molregno1:
+                if sim_item.weighted_sim > max_sim:
+                    for vali in self.validation_set:
+                        if sim_item.med_molregno2 == vali.molregno:
+                            pair_med = vali
+                            max_sim = sim_item.weighted_sim
+                            break
+                    #pair_molregno = sim_item.med_molregno2
+                    #max_sim = sim_item.weighted_sim
+        return [pair_med, max_sim]
+
+    def validate(self):
+        for test_med in self.test_set:
+            pair_med, pair_sim = self.find_pair(test_med.molregno)
+            for known_med in self.validation_set:
+                inter_level = float(self.__get_interaction_level(pair_med.id, known_med.id))
+                if inter_level != -1:
+                    c_index = inter_level * pair_sim
+                    print(pair_med.id, known_med.id, pair_sim, c_index)
 
 
 start = time.time()
 
-similarities = Similarity.read_similarities()
-interactions = Interaction.read_interactions()
-wst_med = WstMed.read_wstmed()
-chn_med = ChnMed.read_chn_med()
-# v = Validation(medicine, similarities, interactions)
-# v.divide_data()
-# c_index = v.conflict_index(v.test_set[0].ID, v.validation_set[0].ID)
-# # print c_index
+# similarities = Similarity.read_similarities()
+# interactions = Interaction.read_interactions()
+# wst_med = WstMed.read_wstmed()
+# chn_med = ChnMed.read_chn_med()
+v = Validation(wst_med, similarities, interactions)
+v.divide_data()
 
 
 ################# Generate Similarities #################
