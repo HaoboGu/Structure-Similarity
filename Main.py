@@ -174,11 +174,11 @@ class Validation:
                 return item.weighted_sim
         return -1
 
-    def __get_interaction_level(self, med1_id, med2_id):
+    def get_interaction_level(self, med1_id, med2_id):
         for item in self.interaction:
-            if item.medicine_id1 == med1_id and item.medicine_id2 == med2_id:
-                return item.interaction_level
-        return -1
+            if (item.medicine_id1 == med1_id and item.medicine_id2 == med2_id) or (item.medicine_id1 == med2_id and item.medicine_id2 == med1_id):
+                return float(item.interaction_level)
+        return 0
 
     def find_pair(self, med_molregno1):
         # return most similar med_molregno2
@@ -197,24 +197,28 @@ class Validation:
         return [pair_med, max_sim]
 
     def validate(self):
+        result = []
         for test_med in self.test_set:
             pair_med, pair_sim = self.find_pair(test_med.molregno)
             for known_med in self.validation_set:
-                inter_level = float(self.__get_interaction_level(pair_med.id, known_med.id))
-                if inter_level != -1:
+                inter_level = float(self.get_interaction_level(pair_med.id, known_med.id))
+                if inter_level != 0:
                     c_index = inter_level * pair_sim
-                    print(pair_med.id, known_med.id, pair_sim, c_index)
+                    print(pair_med.id, known_med.id, inter_level, c_index)
+                    # store test_med, pair_med, knowm_med and conflict index
+                    result.append([test_med, pair_med, known_med, c_index])
+        return result
 
 
 start = time.time()
 
-# similarities = Similarity.read_similarities()
-# interactions = Interaction.read_interactions()
-# wst_med = WstMed.read_wstmed()
+similarities = Similarity.read_similarities()
+interactions = Interaction.read_interactions()
+wst_med = WstMed.read_wstmed()
 # chn_med = ChnMed.read_chn_med()
 v = Validation(wst_med, similarities, interactions)
 v.divide_data()
-
+result = v.validate()
 
 ################# Generate Similarities #################
 # sims = SimOperation.sim_table()
@@ -222,3 +226,9 @@ v.divide_data()
 
 end = time.time()
 print(end - start)
+
+target_med = v.test_set[0]
+print(target_med.id)
+for item in v.validation_set:
+    inter_level = float(v.get_interaction_level(target_med.id, item.id))
+    print(item.id, inter_level)
