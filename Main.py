@@ -41,6 +41,18 @@ class Similarity:
         sim_file.close()
         return similarities
 
+    @staticmethod
+    def read_pairs():
+        pairs = []
+        pairs_file = open('pairs.txt')
+        while 1:
+            line = pairs_file.readline()
+            if not line:
+                break
+            item = line.split()  # item[0]: molregno1; item[1]: most similar mec's molregno; item[2]: similarity
+            pairs.append(item)
+        return pairs
+
 
 class ChnMed:  # Chinese medicine class
 
@@ -155,6 +167,7 @@ class Validation:
         self.wst_med = wst_med
         self.sim = similarities
         self.interaction = interaction
+        self.pairs = []
         self.test_set = []
         self.validation_set = []
 
@@ -174,34 +187,92 @@ class Validation:
                 return item.weighted_sim
         return -1
 
-    def get_interaction_level(self, med1_id, med2_id):
-        for item in self.interaction:
-            if (item.medicine_id1 == med1_id and item.medicine_id2 == med2_id) or (item.medicine_id1 == med2_id and item.medicine_id2 == med1_id):
-                return float(item.interaction_level)
+    def get_interaction_level(self, med_id2, inter_levels):
+        for item in inter_levels:
+            if med_id2 == item[1]:
+                return float(item[2])
         return 0
 
-    def find_pair(self, med_molregno1):
-        # return most similar med_molregno2
-        max_sim = 0
-        # pair_med = WstMed([0,0,0,0,0,0])
-        for sim_item in self.sim:
-            if sim_item.med_molregno1 == med_molregno1:
-                if sim_item.weighted_sim > max_sim:
-                    for vali in self.validation_set:
-                        if sim_item.med_molregno2 == vali.molregno:
-                            pair_med = vali
-                            max_sim = sim_item.weighted_sim
-                            break
-                    #pair_molregno = sim_item.med_molregno2
-                    #max_sim = sim_item.weighted_sim
-        return [pair_med, max_sim]
+    def generate_interaction_levels(self, med_id):
+        interaction_levels = []  # [med_id, inter-med_id, inter_level]
+        for item in self.interaction:
+            if item.medicine_id1 == med_id:
+                interaction_levels.append([med_id, item.medicine_id2, item.interaction_level])
+            elif item.medicine_id2 == med_id:
+                interaction_levels.append([med_id, item.medicine_id1, item.interaction_level])
+        return interaction_levels
 
-    def validate(self):
+    def save_pair2(self, filename):
+        self.generate_pairs()
+        # write pair result to file
+        file = open(filename, 'w')
+        for item in self.pairs:
+            line = str(item[0]) + ' ' + str(item[1]) + ' ' + str(item[2])
+            file.write(line + '\n')
+        file.close()
+
+    def generate_pairs(self):
+        # only find pair in test_set
+        pairs = []
+        for med in self.test_set:
+            max_sim = 0
+            # paired = 0
+            for sim_item in self.sim:
+                if sim_item.med_molregno1 == med.molregno:
+                    if sim_item.weighted_sim > max_sim:
+                        for vali in self.validation_set:
+                            if sim_item.med_molregno2 == vali.molregno:
+                                max_sim = sim_item.weighted_sim
+                                paired = vali
+            pairs.append([med, paired, max_sim])  # structure: [med_obj, paired_med_obj, similarity]
+
+        # another approach, too slow
+        # pairs = []
+        # for med in self.test_set:
+        #     max_sim = 0
+        #     for vali in self.validation_set:
+        #         for sim_item in self.sim:
+        #             if sim_item.med_molregno1 == med.molregno and sim_item.med_molregno2 == vali.molregno:
+        #                 if sim_item.weighted_sim > max_sim:
+        #                     max_sim = sim_item.weighted_sim
+        #                     paired = vali
+        #     pairs.append([med, paired, max_sim])  # structure: [med_obj, paired_med_obj, similarity]
+
+        self.pairs = pairs
+
+    def find_pair2(self, med_molregno):  # for validation set
+        for item in self.pairs:
+            if item[0].molregno == med_molregno:
+                return [item[1], float(item[2])]
+
+    def save_pair(self, filename):
+        # find the most similar medcs and save
+        pairs = []
+        for med in self.wst_med:
+            max_sim = 0
+            paired_molregno = 0
+            for sim_item in self.sim:
+                if sim_item.med_molregno1 == med.molregno:
+                    if sim_item.weighted_sim > max_sim:
+                        max_sim = sim_item.weighted_sim
+                        paired_molregno = sim_item.med_molregno2
+            pairs.append([med.molregno, paired_molregno, max_sim])
+
+        # write pair result to file
+        file = open(filename, 'w')
+        for item in pairs:
+            line = str(item[0]) + ' ' + str(item[1]) + ' ' + str(item[2])
+            file.write(line + '\n')
+        file.close()
+
+    def compute_conflict_index(self):
         result = []
         for test_med in self.test_set:
-            pair_med, pair_sim = self.find_pair(test_med.molregno)
+            pair_med, pair_sim = self.find_pair2(test_med.molregno)  # find most similar drug in validation set
+            interaction_levels = self.generate_interaction_levels(pair_med.id)  # get pair_med's all interactions
+            print('pair:', test_med.id, pair_med.id, pair_sim)
             for known_med in self.validation_set:
-                inter_level = float(self.get_interaction_level(pair_med.id, known_med.id))
+                inter_level = self.get_interaction_level(known_med.id, interaction_levels)
                 if inter_level != 0:
                     c_index = inter_level * pair_sim
                     print(pair_med.id, known_med.id, inter_level, c_index)
@@ -209,16 +280,39 @@ class Validation:
                     result.append([test_med, pair_med, known_med, c_index])
         return result
 
+    def compute_validate_para(self, conflict_index):
+        num_conflict = 0
+        ratio = 0.6
+        interaction_levels = self.generate_interaction_levels(pair_med.id)  # get pair_med's all interactions
+        for item in result:
+            if item[3]/float(self.get_interaction_level(item[0].id, item[2].id)) > ratio:
+                print("conflict:", item[0].name, item[2].name)
+                num_conflict += 1
+        ratio_recall = num_conflict/result.__len__()
+        return ratio_recall
+
+    def validate(self):
+        self.generate_pairs()
+        conflict_index = self.compute_conflict_index()
+        ratio = self.compute_validate_para(conflict_index)
+        print(ratio)
 
 start = time.time()
 
 similarities = Similarity.read_similarities()
 interactions = Interaction.read_interactions()
 wst_med = WstMed.read_wstmed()
+# pairs = Similarity.read_pairs()
+
 # chn_med = ChnMed.read_chn_med()
 v = Validation(wst_med, similarities, interactions)
 v.divide_data()
-result = v.validate()
+v.generate_pairs()
+# conflict_index = v.compute_conflict_index()
+# ratio = v.compute_validate_para(conflict_index)
+# v.validate()
+# v.find_and_save_pair('pairs.txt')
+# result = v.validate()
 
 ################# Generate Similarities #################
 # sims = SimOperation.sim_table()
@@ -226,9 +320,6 @@ result = v.validate()
 
 end = time.time()
 print(end - start)
-
-target_med = v.test_set[0]
-print(target_med.id)
-for item in v.validation_set:
-    inter_level = float(v.get_interaction_level(target_med.id, item.id))
-    print(item.id, inter_level)
+#
+for item in c:
+    print('test_med:'+item[0].id, 'paired:'+item[1].id, 'known:'+item[2].id, 'index:'+item[3])
