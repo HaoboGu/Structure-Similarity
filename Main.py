@@ -2,6 +2,7 @@
 
 import time
 import random
+from concurrent.futures._base import _AcquireFutures
 
 
 class Similarity:
@@ -267,28 +268,43 @@ class Validation:
 
     def compute_conflict_index(self):
         result = []
+        same = 0
+        total = 0
+        zero_level = 0
+        tt_level = 0
+        zero_real_level = 0
         for test_med in self.test_set:
             pair_med, pair_sim = self.find_pair2(test_med.molregno)  # find most similar drug in validation set
             interaction_levels = self.generate_interaction_levels(pair_med.id)  # get pair_med's all interactions
+            inter_level_validate = self.generate_interaction_levels(test_med.id)  # get test_med's all interactions
             print('pair:', test_med.id, pair_med.id, pair_sim)
             for known_med in self.validation_set:
                 inter_level = self.get_interaction_level(known_med.id, interaction_levels)
+                real_level = self.get_interaction_level(known_med.id, inter_level_validate)
+                if inter_level == 0:
+                    zero_level += 1
+                tt_level += 1
+                if real_level == 0:
+                    zero_real_level += 1
                 if inter_level != 0:
                     c_index = inter_level * pair_sim
-                    print(pair_med.id, known_med.id, inter_level, c_index)
+                    if inter_level == real_level:
+                        same += 1
+                    if real_level != 0:
+                        total += 1
+                    print(pair_med.id, known_med.id, inter_level, c_index, real_level)
                     # store test_med, pair_med, knowm_med and conflict index
-                    result.append([test_med, pair_med, known_med, c_index])
+                    result.append([test_med, pair_med, known_med, c_index, real_level])
+        print(same, total, float(same)/float(total))
+        print('zero_lvl:', zero_level)
+        print('zero_real_lvl:', zero_real_level)
+        print('tt_num_lvl:', tt_level)
         return result
 
     def compute_validate_para(self, conflict_index):
         num_conflict = 0
         ratio = 0.6
-        interaction_levels = self.generate_interaction_levels(pair_med.id)  # get pair_med's all interactions
-        for item in result:
-            if item[3]/float(self.get_interaction_level(item[0].id, item[2].id)) > ratio:
-                print("conflict:", item[0].name, item[2].name)
-                num_conflict += 1
-        ratio_recall = num_conflict/result.__len__()
+        ratio_recall = 0
         return ratio_recall
 
     def validate(self):
@@ -308,7 +324,7 @@ wst_med = WstMed.read_wstmed()
 v = Validation(wst_med, similarities, interactions)
 v.divide_data()
 v.generate_pairs()
-# conflict_index = v.compute_conflict_index()
+conflict_index = v.compute_conflict_index()
 # ratio = v.compute_validate_para(conflict_index)
 # v.validate()
 # v.find_and_save_pair('pairs.txt')
@@ -319,7 +335,4 @@ v.generate_pairs()
 # SimOperation.write_similarities(sims)
 
 end = time.time()
-print(end - start)
-#
-for item in c:
-    print('test_med:'+item[0].id, 'paired:'+item[1].id, 'known:'+item[2].id, 'index:'+item[3])
+print('time:', end - start, 's')
