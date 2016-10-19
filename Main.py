@@ -3,7 +3,7 @@
 import time
 import random
 from concurrent.futures._base import _AcquireFutures
-
+from sklearn import svm
 
 class Similarity:
     def __init__(self, med_id1=0, med_id2=0, maccs=0, fcfp4=0, ecfp4=0, topo=0, weighted_sim=0):
