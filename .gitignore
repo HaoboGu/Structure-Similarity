@@ -17,6 +17,7 @@ medicine_structure/
 # TXT files
 result.txt
 interactions.txt
+.txt
 
 # Distribution / packaging
 .Python
