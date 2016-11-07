@@ -333,6 +333,10 @@ conflict_index = v.compute_conflict_index()
 ################# Generate Similarities #################
 # sims = SimOperation.sim_table()
 # SimOperation.write_similarities(sims)
+# num = 1
+# for x in range(1, chn_med.__len__()):
+#     if chn_med[x].chn_name != chn_med[x-1].chn_name:
+#         num += 1
 
 end = time.time()
 print('time:', end - start, 's')
