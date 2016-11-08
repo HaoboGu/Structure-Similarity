@@ -6,9 +6,9 @@ from concurrent.futures._base import _AcquireFutures
 from sklearn import svm
 
 class Similarity:
-    def __init__(self, med_id1=0, med_id2=0, maccs=0, fcfp4=0, ecfp4=0, topo=0, weighted_sim=0):
-        self.med_molregno1 = med_id1
-        self.med_molregno2 = med_id2
+    def __init__(self, med_molregno1=0, med_molregno2=0, maccs=0, fcfp4=0, ecfp4=0, topo=0, weighted_sim=0):
+        self.med_molregno1 = med_molregno1
+        self.med_molregno2 = med_molregno2
         self.maccs = maccs
         self.ecfp4 = ecfp4
         self.fcfp4 = fcfp4
@@ -41,6 +41,29 @@ class Similarity:
             similarities.append(s)
         sim_file.close()
         return similarities
+
+    @staticmethod
+    def read_sims_to_dict():
+        similarities = []
+        sim_file = open('result.txt')
+        maccs_dict = {}
+        ecfp4_dict = {}
+        fcfp4_dict = {}
+        topo_dict = {}
+        while 1:
+            s = Similarity()
+            line = sim_file.readline()
+            if not line:
+                break
+            table = line.split()
+            key = table[0]+table[1]
+            maccs_dict[key] = float(table[2])
+            ecfp4_dict[key] = float(table[3])
+            fcfp4_dict[key] = float(table[4])
+            topo_dict[key] = float(table[5])
+            # s.print()
+        sim_file.close()
+        return [maccs_dict, ecfp4_dict, fcfp4_dict, topo_dict]
 
     @staticmethod
     def read_pairs():
@@ -108,6 +131,21 @@ class WstMed:  # Western medicine class
 
     @staticmethod
     # read western medicine data
+    def read_wstmed_to_dict():
+        wst_med_file = open('WMedc.txt')
+        wstmed_dict = {}
+        while 1:
+            line = wst_med_file.readline()
+            if not line:
+                break
+            row = line.split()
+            med = WstMed(row)
+            wstmed_dict[med.molregno] = med
+        wst_med_file.close()
+        return wstmed_dict
+
+    @staticmethod
+    # read western medicine data
     def read_wstmed():
         wst_med_file = open('WMedc.txt')
         wst_med = []
@@ -136,6 +174,19 @@ class Interaction:  # interaction between western medicines
     # read interaction data
     @staticmethod
     def read_interactions():
+        interaction_file = open('interactions.txt')
+        interactions = []
+        while 1:
+            line = interaction_file.readline()
+            if not line:
+                break
+            row = line.split()
+            inter = Interaction(row)
+            interactions.append(inter)
+        interaction_file.close()
+        return interactions
+
+    def read_interactions_to_dict():
         interaction_file = open('interactions.txt')
         interactions = []
         while 1:
@@ -315,16 +366,18 @@ class Validation:
 
 start = time.time()
 
-similarities = Similarity.read_similarities()
-interactions = Interaction.read_interactions()
-wst_med = WstMed.read_wstmed()
+maccs_dict, ecfp4_dict, fcfp4_dict, topo_dict = Similarity.read_sims_to_dict()
+wstmed_dict = WstMed.read_wstmed_to_dict()  # search western medicine via molregno
+# interactions = Interaction.read_interactions()
+# wst_med = WstMed.read_wstmed()
 # pairs = Similarity.read_pairs()
 
+
 # chn_med = ChnMed.read_chn_med()
-v = Validation(wst_med, similarities, interactions)
-v.divide_data()
-v.generate_pairs()
-conflict_index = v.compute_conflict_index()
+# v = Validation(wst_med, similarities, interactions)
+# v.divide_data()
+# v.generate_pairs()
+# conflict_index = v.compute_conflict_index()
 # ratio = v.compute_validate_para(conflict_index)
 # v.validate()
 # v.find_and_save_pair('pairs.txt')
@@ -340,3 +393,7 @@ conflict_index = v.compute_conflict_index()
 
 end = time.time()
 print('time:', end - start, 's')
+
+def calculate_link_sim(sim1, sim2):
+
+    return (sim1+sim2)/2.0
