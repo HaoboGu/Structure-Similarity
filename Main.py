@@ -3,7 +3,7 @@
 import time
 import random
 from concurrent.futures._base import _AcquireFutures
-from sklearn import svm
+from sklearn.linear_model import LogisticRegression
 
 class Similarity:
     def __init__(self, med_molregno1=0, med_molregno2=0, maccs=0, fcfp4=0, ecfp4=0, topo=0, weighted_sim=0):
@@ -219,14 +219,38 @@ class Validation:
 
     def __init__(self, wst_med, similarities, interaction):
         self.wst_med = wst_med
-        self.sim = similarities
-        self.interaction = interaction
+        self.sim = similarities  # key: molregno
+        self.interaction = interaction  # key: drugs.com id
         self.pairs = []
-        self.train_set = []
-        self.validation_set = []
-        self.train_inters = {}
-        self.val_train_sim = {}
-        self.train_train_sim = {}
+        self.train_set = []  # 90%
+        self.validation_set = []  # 10%
+        self.train_inters = {}  # molregno1 + molregno2: interaction level, all interactions between drugs in train set
+        self.val_maccs_pair_mol = {}  # drug molregno: similar drug's molregno
+        self.val_topo_pair_mol = {}  # drug molregno: similar drug's molregno
+        self.val_ecfp4_pair_mol = {}  # drug molregno: similar drug's molregno
+        self.val_fcfp4_pair_mol = {}  # drug molregno: similar drug's molregno
+        self.train_maccs_pair_mol = {}  # drug molregno: similar drug's molregno
+        self.train_ecfp4_pair_mol = {}  # drug molregno: similar drug's molregno
+        self.train_fcfp4_pair_mol = {}  # drug molregno: similar drug's molregno
+        self.train_topo_pair_mol = {}  # drug molregno: similar drug's molregno
+        self.val_maccs_pair_id = {}  # drug molregno: similar drug's id
+        self.val_topo_pair_id = {}  # drug molregno: similar drug's id
+        self.val_ecfp4_pair_id = {}  # drug molregno: similar drug's id
+        self.val_fcfp4_pair_id = {}  # drug molregno: similar drug's id
+        self.train_maccs_pair_id = {}  # drug molregno: similar drug's id
+        self.train_ecfp4_pair_id = {}  # drug molregno: similar drug's id
+        self.train_fcfp4_pair_id = {}  # drug molregno: similar drug's id
+        self.train_topo_pair_id = {}  # drug molregno: similar drug's id
+        self.maccs = {}
+        self.ecfp4 = {}
+        self.fcfp4 = {}
+        self.topo = {}
+
+    def input_sims(self, maccs_dict, ecfp4_dict, fcfp4_dict, topo_dict):
+        self.maccs = maccs_dict
+        self.ecfp4 = ecfp4_dict
+        self.fcfp4 = fcfp4_dict
+        self.topo = topo_dict
 
     def divide_data(self):
         self.train_set = []
@@ -240,65 +264,216 @@ class Validation:
                 self.train_set.append(self.wst_med[i])
             flag += 1
 
-    def __get_similarity(self, med1_id, med2_id):
-        for item in self.sim:
-            if item.drug1_id == med1_id and item.drug2_id == med2_id:
-                return item.weighted_sim
-        return -1
-
     def logistic_regression(self):
         # find interactions in train set
+        self.create_interactions_train_set()
+        # for pairs in validation set, find most similar pairs
+        self.create_pairs_for_train_set()
+        self.create_pairs_for_validation_set()
+        # create training array
+        for d1 in self.train_set:
+            for d2 in self.train_set:
+                feature = self.link_sim(d1, d2)
+                print(feature)
+        # Logistic Regression
+        # lr = LogisticRegression(multi_class='multinomial')
+        # lr.fit()
+        # lr.predict()
+        return 0
+
+    def create_pairs_for_validation_set(self):
+        for val in self.validation_set:
+            maxmaccs = 0
+            maxecfp = 0
+            maxfcfp = 0
+            maxtopo = 0
+            for train in self.train_set:
+                maccs = self.sim_by_mol(val.molregno, train.molregno, 0)
+                ecfp = self.sim_by_mol(val.molregno, train.molregno, 1)
+                fcfp = self.sim_by_mol(val.molregno, train.molregno, 2)
+                topo = self.sim_by_mol(val.molregno, train.molregno, 3)
+                # print('maccs,ecfp,fcfp,topo: ', maccs, ecfp, fcfp, topo)
+                if maccs >= maxmaccs:
+                    maxmaccs = maccs
+                    self.val_maccs_pair_mol[val.molregno] = train.molregno
+                    self.val_maccs_pair_id[val.molregno] = train.id
+                if ecfp >= maxecfp:
+                    maxecfp = ecfp
+                    self.val_ecfp4_pair_mol[val.molregno] = train.molregno
+                    self.val_ecfp4_pair_id[val.molregno] = train.id
+                if fcfp >= maxfcfp:
+                    maxfcfp = fcfp
+                    self.val_fcfp4_pair_mol[val.molregno] = train.molregno
+                    self.val_fcfp4_pair_id[val.molregno] = train.id
+                if topo >= maxtopo:
+                    maxtopo = topo
+                    self.val_topo_pair_mol[val.molregno] = train.molregno
+                    self.val_topo_pair_id[val.molregno] = train.id
+
+    def create_pairs_for_train_set(self):  # for training process
+        for train1 in self.train_set:
+            maxmaccs = 0
+            maxecfp = 0
+            maxfcfp = 0
+            maxtopo = 0
+            for train2 in self.train_set:
+                if train1 != train2:
+                    maccs = self.sim_by_mol(train1.molregno, train2.molregno, 0)
+                    ecfp = self.sim_by_mol(train1.molregno, train2.molregno, 1)
+                    fcfp = self.sim_by_mol(train1.molregno, train2.molregno, 2)
+                    topo = self.sim_by_mol(train1.molregno, train2.molregno, 3)
+                    if maccs >= maxmaccs:
+                        maxmaccs = maccs
+                        self.train_maccs_pair_mol[train1.molregno] = train2.molregno
+                        self.train_maccs_pair_id[train1.molregno] = train2.id
+                    if ecfp >= maxecfp:
+                        maxecfp = ecfp
+                        self.train_ecfp4_pair_mol[train1.molregno] = train2.molregno
+                        self.train_ecfp4_pair_id[train1.molregno] = train2.id
+                    if fcfp >= maxfcfp:
+                        maxfcfp = fcfp
+                        self.train_fcfp4_pair_mol[train1.molregno] = train2.molregno
+                        self.train_fcfp4_pair_id[train1.molregno] = train2.id
+                    if topo >= maxtopo:
+                        maxtopo = topo
+                        self.train_topo_pair_mol[train1.molregno] = train2.molregno
+                        self.train_topo_pair_id[train1.molregno] = train2.id
+
+    def create_interactions_train_set(self):  # find all interactions between train set
         for d1 in self.train_set:
             for d2 in self.train_set:
                 if d1 != d2:
                     key = d1.id + ' ' + d2.id
                     if key in self.interaction.keys():
                         self.train_inters[key] = self.interaction[key]
-        # for pairs in validation set, find most similar pairs
-        for d1 in self.validation_set:
-            for d2 in self.validation_set:
-                if d1 != d2:
-                    #TODO
-                    continue  #
 
-        return 0
+    def link_sim(self, d1, d2):  # create training array of drug d1 and d2
+        # find interaction lvl between d1, d2
+        inter = self.interaction_by_id(d1.id, d2.id)
+        if 1:
+            # calculate sim feature using (sim(s1,d1) + sim(s2,d2))/2 * interaction lvl(s1,s2)
+            s1_mol = self.train_maccs_pair_mol[d1.molregno]
+            s2_mol = self.train_maccs_pair_mol[d2.molregno]
+            s1_id = self.train_maccs_pair_id[d1.molregno]
+            s2_id = self.train_maccs_pair_id[d2.molregno]
+            maccs1 = self.sim_by_mol(s1_mol, d1.molregno, sim_type=0)
+            maccs2 = self.sim_by_mol(s2_mol, d2.molregno, sim_type=0)
+            # if float(self.interaction_by_id(s1_id, s2_id))!=0:
+            #     print(float(maccs1), float(maccs2), float(self.interaction_by_id(s1_id, s2_id)))
+            feature1 = (float(maccs1) + float(maccs2)) * float(self.interaction_by_id(s1_id, s2_id)) / 2
 
-    def create_pair_for_validation_set(self):
-        for val in self.validation_set:
-            maxsim = 0
-            for train in self.train_set:
-                key = val.molregno + ' ' + train.molregno
-                key2 = train.molregno + ' ' + val.molregno
-                if key in self.sim.keys():
-                    if self.sim[key] > maxsim:
-                        maxsim = self.sim[key]
-                        self.val_train_sim[val.molregno] = train.molregno
-                elif key2 in self.sim.keys():
-                    if self.sim[key2] > maxsim:
-                        maxsim = self.sim[key2]
-                        self.val_train_sim[val.molregno] = train.molregno
-                else:
-                    print('error: cannot find similarity between', val.molregno, train.molregno)
+            s1_mol = self.train_ecfp4_pair_mol[d1.molregno]
+            s2_mol = self.train_ecfp4_pair_mol[d2.molregno]
+            s1_id = self.train_ecfp4_pair_id[d1.molregno]
+            s2_id = self.train_ecfp4_pair_id[d2.molregno]
+            ecfp41 = self.sim_by_mol(s1_mol, d1.molregno, sim_type=1)
+            ecfp42 = self.sim_by_mol(s2_mol, d2.molregno, sim_type=1)
+            feature2 = (float(ecfp41) + float(ecfp42)) * float(self.interaction_by_id(s1_id, s2_id)) / 2
 
-    def create_pair_for_train_set(self):  # for training process
-        for t1 in self.train_set:
-            maxsim = 0
-            for t2 in self.train_set:
-                if t1 != t2:
-                    key = t1.molregno + ' ' + t2.molregno
-                    key2 = t2.molregno + ' ' + t1.molregno
-                    if key in self.sim.keys():
-                        if self.sim[key] > maxsim:
-                            maxsim = self.sim[key]
-                            self.train_train_sim[t1.molregno] = t2.molregno
-                    elif key2 in self.sim.keys():
-                        if self.sim[key2] > maxsim:
-                            maxsim = self.sim[key2]
-                            self.train_train_sim[t1.molregno] = t2.molregno
-                    else:
-                        print('error: cannot find similarity between', t1.molregno, t2.molregno)
+            s1_mol = self.train_fcfp4_pair_mol[d1.molregno]
+            s2_mol = self.train_fcfp4_pair_mol[d2.molregno]
+            s1_id = self.train_fcfp4_pair_id[d1.molregno]
+            s2_id = self.train_fcfp4_pair_id[d2.molregno]
+            fcfp41 = self.sim_by_mol(s1_mol, d1.molregno, sim_type=2)
+            fcfp42 = self.sim_by_mol(s2_mol, d2.molregno, sim_type=2)
+            feature3 = (float(fcfp41) + float(fcfp42)) * float(self.interaction_by_id(s1_id, s2_id)) / 2
 
+            s1_mol = self.train_topo_pair_mol[d1.molregno]
+            s2_mol = self.train_topo_pair_mol[d2.molregno]
+            s1_id = self.train_topo_pair_id[d1.molregno]
+            s2_id = self.train_topo_pair_id[d2.molregno]
+            topo1 = self.sim_by_mol(s1_mol, d1.molregno, sim_type=3)
+            topo2 = self.sim_by_mol(s2_mol, d2.molregno, sim_type=3)
+            feature4 = (float(topo1) + float(topo2)) * float(self.interaction_by_id(s1_id, s2_id)) / 2
+            return [feature1, feature2, feature3, feature4, inter]
+        else:
+            return [0, 0, 0, 0, 0]
 
+    def link_sim_val(self, d1, d2):  # create similar array of drug d1 and d2
+        # find interaction lvl between d1, d2
+        inter = self.interaction_by_id(d1.id, d2.id)
+        if 1:
+            # calculate sim feature using (sim(s1,d1) + sim(s2,d2))/2 * interaction lvl(s1,s2)
+            s1_mol = self.val_maccs_pair_mol[d1.molregno]
+            s2_mol = self.val_maccs_pair_mol[d2.molregno]
+            s1_id = self.val_maccs_pair_id[d1.molregno]
+            s2_id = self.val_maccs_pair_id[d2.molregno]
+            maccs1 = self.sim_by_mol(s1_mol, d1.molregno, sim_type=0)
+            maccs2 = self.sim_by_mol(s2_mol, d2.molregno, sim_type=0)
+            # if float(self.interaction_by_id(s1_id, s2_id))!=0:
+            #     print(float(maccs1), float(maccs2), float(self.interaction_by_id(s1_id, s2_id)))
+            feature1 = (float(maccs1) + float(maccs2)) * float(self.interaction_by_id(s1_id, s2_id)) / 2
+
+            s1_mol = self.val_ecfp4_pair_mol[d1.molregno]
+            s2_mol = self.val_ecfp4_pair_mol[d2.molregno]
+            s1_id = self.val_ecfp4_pair_id[d1.molregno]
+            s2_id = self.val_ecfp4_pair_id[d2.molregno]
+            ecfp41 = self.sim_by_mol(s1_mol, d1.molregno, sim_type=1)
+            ecfp42 = self.sim_by_mol(s2_mol, d2.molregno, sim_type=1)
+            feature2 = (float(ecfp41) + float(ecfp42)) * float(self.interaction_by_id(s1_id, s2_id)) / 2
+
+            s1_mol = self.val_fcfp4_pair_mol[d1.molregno]
+            s2_mol = self.val_fcfp4_pair_mol[d2.molregno]
+            s1_id = self.val_fcfp4_pair_id[d1.molregno]
+            s2_id = self.val_fcfp4_pair_id[d2.molregno]
+            fcfp41 = self.sim_by_mol(s1_mol, d1.molregno, sim_type=2)
+            fcfp42 = self.sim_by_mol(s2_mol, d2.molregno, sim_type=2)
+            feature3 = (float(fcfp41) + float(fcfp42)) * float(self.interaction_by_id(s1_id, s2_id)) / 2
+
+            s1_mol = self.val_topo_pair_mol[d1.molregno]
+            s2_mol = self.val_topo_pair_mol[d2.molregno]
+            s1_id = self.val_topo_pair_id[d1.molregno]
+            s2_id = self.val_topo_pair_id[d2.molregno]
+            topo1 = self.sim_by_mol(s1_mol, d1.molregno, sim_type=3)
+            topo2 = self.sim_by_mol(s2_mol, d2.molregno, sim_type=3)
+            feature4 = (float(topo1) + float(topo2)) * float(self.interaction_by_id(s1_id, s2_id)) / 2
+            return [feature1, feature2, feature3, feature4, inter]
+        else:
+            return [0, 0, 0, 0, 0]
+
+    def sim_by_mol(self, mol1, mol2, sim_type=0):  # sim_type: 0-maccs, 1-ecfp4, 2-fcfp4, 3-topo
+        key = mol1 + ' ' + mol2
+        key2 = mol2 + ' ' + mol1
+        if sim_type == 0:
+            if key in self.maccs.keys():
+                return self.maccs[key]
+            elif key2 in self.maccs.keys():
+                return self.maccs[key2]
+            else:
+                print("maccs_sim_by_mol error: no key ", key)
+        elif sim_type == 1:
+            if key in self.ecfp4.keys():
+                return self.ecfp4[key]
+            elif key2 in self.ecfp4.keys():
+                return self.ecfp4[key2]
+            else:
+                print("ecfp4_sim_by_mol error: no key ", key)
+        elif sim_type == 2:
+            if key in self.fcfp4.keys():
+                return self.fcfp4[key]
+            elif key2 in self.fcfp4.keys():
+                return self.fcfp4[key2]
+            else:
+                print("fcfp4_sim_by_mol error: no key ", key)
+        elif sim_type == 3:
+            if key in self.topo.keys():
+                return self.topo[key]
+            elif key2 in self.topo.keys():
+                return self.topo[key2]
+            else:
+                print("topo_sim_by_mol error: no key ", key)
+        else:
+            print("similarity type error!!!!!")
+
+    def interaction_by_id(self, id1, id2):
+        key1 = id1 + ' ' + id2
+        key2 = id2 + ' ' + id1
+        if key1 in self.interaction.keys():
+            return self.interaction[key1]
+        elif key2 in self.interaction.keys():
+            return self.interaction[key2]
+        else:
+            return 0
 
 
 start = time.time()
@@ -309,18 +484,107 @@ interaction_dict = Interaction.read_interactions_to_dict(wstmed_id)  # 128535 in
 
 v = Validation(wstmed_id, maccs_dict, interaction_dict)
 v.divide_data()
-v.create_pair_for_validation_set()
-v.create_pair_for_train_set()
+v.input_sims(maccs_dict, ecfp4_dict, fcfp4_dict, topo_dict)
+# v.sim = maccs_dict
+v.create_pairs_for_validation_set()
+v.create_pairs_for_train_set()
+v.create_interactions_train_set()
 # v.logistic_regression()
+
+
+train_array = []
+num = 0
+ar1 = []
+ar2 = []
+ar3 = []
+ar4 = []
+inters = []
+for d1 in v.train_set:
+    for d2 in v.train_set:
+        if d1 != d2:
+            # if v.interaction_by_id(d1.id,d2.id) != 0:
+            #     print(d1.id, d2.id, v.interaction_by_id(d1.id,d2.id))
+            f1, f2, f3, f4, inter = v.link_sim(d1, d2)
+            # if f1!=0 and f2!=0 and f3!=0 and f4!=0:
+            if 1:
+                ar1.append(f1)
+                ar2.append(f2)
+                ar3.append(f3)
+                ar4.append(f4)
+                inters.append(inter)
+                # print(f1, f2, f3, f4, inter)
+            # if feature != 0:
+            #     train_array.append(feature)
+            #     print(feature)
+                num += 1
+#
+
+train_array = [ar1, ar2, ar3, ar4, inters]
+tr = [ar1, ar2, ar3, ar4]
+a = [list(x) for x in zip(*tr)]
+
+lr = LogisticRegression(solver='sag', multi_class='multinomial')
+lr.fit(a, inters)
+re = lr.predict(a)
+same = 0
+unsame = 0
+num = 0
+for i in range(0, inters.__len__()):
+
+    if int(re[i]) != 0:
+        num += 1
+        if int(re[i]) == inters[i]:
+            same += 1
+        else:
+            print(re[i], inters[i])
+            unsame += 1
+print(same, unsame, num)
+print(same/num)
+
 end = time.time()
 print('time: ', end - start)
 
-for i in v.train_train_sim:
-    key1 = v.train_train_sim[i] + ' ' + i
-    key2 = i + ' ' + v.train_train_sim[i]
-    if key1 in v.sim.keys():
-        print(v.sim[key1])
-    elif key2 in v.sim.keys():
-        print(v.sim[key2])
+train_array = []
+num = 0
+ar1 = []
+ar2 = []
+ar3 = []
+ar4 = []
+inters = []
+for d1 in v.validation_set:
+    for d2 in v.validation_set:
+        if d1 != d2:
+            # if v.interaction_by_id(d1.id,d2.id) != 0:
+            #     print(d1.id, d2.id, v.interaction_by_id(d1.id,d2.id))
+            f1, f2, f3, f4, inter = v.link_sim_val(d1, d2)
+            # if f1!=0 and f2!=0 and f3!=0 and f4!=0:
+            if 1:
+                ar1.append(f1)
+                ar2.append(f2)
+                ar3.append(f3)
+                ar4.append(f4)
+                inters.append(inter)
+                # TODO: all inters are 0
+                # print(f1, f2, f3, f4, inter)
+            # if feature != 0:
+            #     train_array.append(feature)
+            #     print(feature)
+                num += 1
+#
+
+train_array = [ar1, ar2, ar3, ar4, inters]
+tr = [ar1, ar2, ar3, ar4]
+a = [list(x) for x in zip(*tr)]
+
+re = lr.predict(a)
+same = 0
+unsame = 0
+num = 0
+for i in range(0, inters.__len__()):
+    num+=1
+    if re[i] == inters[i]:
+        same += 1
     else:
-        print('eeeeeeeeeeeeeeeeeeeee')
+        unsame += 1
+print(same, unsame, num)
+print(same/num)
