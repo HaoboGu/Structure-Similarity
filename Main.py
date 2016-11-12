@@ -1,13 +1,13 @@
 # -*- coding:utf-8 -*-
 
-import time
 import random
-from sklearn.linear_model import LogisticRegression
-import numpy as np
-from sklearn.svm import SVC
-from sklearn.svm import LinearSVC
-from sklearn.metrics import roc_curve
+import time
+import xlsxwriter
 import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_curve
+import csv
 
 class Similarity:
     def __init__(self, med_molregno1=0, med_molregno2=0, maccs=0, fcfp4=0, ecfp4=0, topo=0, weighted_sim=0):
@@ -225,7 +225,6 @@ class Validation:
         self.wst_med = wst_med
         self.sim = similarities  # key: molregno
         self.interaction = interaction  # key: drugs.com id
-        self.pairs = []
         self.train_set = []  # 90%
         self.validation_set = []  # 10%
         self.train_inters = {}  # molregno1 + molregno2: interaction level, all interactions between drugs in train set
@@ -244,6 +243,9 @@ class Validation:
         self.mol_by_id = {}  # find molregno by drugs' id
         self.id_by_mol = {}  # find id by molregno
         self.index_array = np.zeros(1366)
+        self.train_interactions = {}
+        self.validation_interactions = {}
+        self.inter_matrix = np.zeros(shape=(1366,1366))
 
     def input_sims(self, maccs_dict, ecfp4_dict, fcfp4_dict, topo_dict):
         self.maccs = maccs_dict
@@ -477,10 +479,10 @@ class Validation:
         self.result = lr.predict(val)
         prob_re = lr.predict_proba(val)
         # self.result = svm.predict(val)
-        prob_re= prob_re.transpose()
-        print(prob_re.__len__(), inters.__len__())
-        fpr_grd_lm, tpr_grd_lm, _ = roc_curve(inters, prob_re[0])
-        plt.plot(fpr_grd_lm, tpr_grd_lm, label='GBT + LR')
+        # prob_re= prob_re.transpose()
+        # print(prob_re.__len__(), inters.__len__())
+        # fpr_grd_lm, tpr_grd_lm, _ = roc_curve(inters, prob_re[0])
+        # plt.plot(fpr_grd_lm, tpr_grd_lm, label='GBT + LR')
         # validation
         same = 0
         unsame = 0
@@ -649,15 +651,17 @@ class Validation:
                 self.train_interactions[key] = float(self.interaction[key])
             flag += 1
 
-    def inter_matrix(self):  # train interactions matrix
+    def get_inter_matrix(self):  # train interactions matrix
         # create index_array
-        v.create_index_array()
-        v.inter_matrix = np.zeros(shape=(1366, 1366))
-        for key in v.train_interactions:
+        # self.create_index_array()
+        self.inter_matrix = np.zeros(shape=(1366, 1366))
+        for key in self.train_interactions:
             id1, id2 = key.split()
-            row = np.where(v.index_array == float(id1))[0][0]
-            col = np.where(v.index_array == float(id2))[0][0]
-            v.inter_matrix[row][col] = float(v.train_interactions[key])
+            row = np.where(self.index_array == float(id1))[0][0]
+            col = np.where(self.index_array == float(id2))[0][0]
+            self.inter_matrix[row][col] = float(self.train_interactions[key])
+        for i in range(0, 1366):
+            self.inter_matrix[i][i] = 0
 
     def sim_matrix(self):
         # maccs, ecfp, fcfp, topo matrix
@@ -666,7 +670,7 @@ class Validation:
         self.fcfp_matrix = np.zeros(shape=(1366, 1366))
         self.topo_matrix = np.zeros(shape=(1366, 1366))
         self.create_mol_id_dict()
-        self.create_index_array()
+        # self.create_index_array()
         for key in self.maccs:
             mol1, mol2 = key.split()
             id1 = self.id_by_mol[mol1]
@@ -677,18 +681,164 @@ class Validation:
             self.ecfp_matrix[row][col] = float(self.ecfp4[key])
             self.fcfp_matrix[row][col] = float(self.fcfp4[key])
             self.topo_matrix[row][col] = float(self.topo[key])
+        for index in range(0, 1366):
+            self.maccs_matrix[index][index] = 0
+            self.ecfp_matrix[index][index] = 0
+            self.fcfp_matrix[index][index] = 0
+            self.topo_matrix[index][index] = 0
 
     def create_predict_matrix(self, inter_matrix, sim_matrix):
-        M12 = inter_matrix * sim_matrix
-        M12T = M12.transpose()
-        BisBigger = M12T>M12
-        return M12 - np.multiply(M12, BisBigger) + np.multiply(M12T, BisBigger)
+        # m12 = inter_matrix.dot(sim_matrix)  # * is element-wise multiply
+        m12 = np.zeros(shape=(1366, 1366))
+        st = sim_matrix.transpose()
+        for row in range(0,1366):
+            for col in range(0,1366):
+                m12[row][col] = (inter_matrix[row]*st[col]).max()
+        m12t = m12.transpose()
+        pos_bigger = m12t > m12
+        return m12 - np.multiply(m12, pos_bigger) + np.multiply(m12t, pos_bigger)
 
     def matrix_approach(self):
+        for key in v.interaction:
+            v.interaction[key] = 1
+        v.create_index_array()
         v.divide_interactions()
-        v.inter_matrix()
+        v.get_inter_matrix()
         v.sim_matrix()
         re = v.create_predict_matrix(v.inter_matrix, v.maccs_matrix)
+
+        # transform re matrix to re_interactions dict
+        re_list = []
+        re_interactions = {}
+        for row in range(0, 1366):
+            for col in range(0, 1366):
+                id1 = str(int(v.index_array[row]))
+                id2 = str(int(v.index_array[col]))
+                key = id1 + ' ' + id2
+                re_list.append([id1,id2,re[row][col]])
+                re_interactions[key] = re[row][col]
+        re_list = np.array(re_list)
+        re_list = re_list[re_list.transpose()[2].argsort(), :]
+        re_list = re_list[::-1]
+
+        # count TP TN FN FP and precision, recall
+        TP = 0  # predict 1, actual 1
+        TN = 0  # predict 0, actual 0
+        FN = 0  # predict 0, actual 1
+        FP = 0  # predict 1, actual 0
+        for item in re_list:
+            key = item[0] + ' ' + item[1]
+            if key in v.validation_interactions.keys():
+                # print(v.validation_interactions[key], item[2])
+                if float(item[2]) > 0.8:
+                    TP += 1
+                else:
+                    FN += 1
+            elif key not in v.train_interactions.keys():
+                if float(item[2]) > 0.8:
+                    FP += 1
+        # for key in v.validation_interactions:
+        #     # id1, id2 = key.split()
+        #     # row = np.where(v.index_array == float(id1))[0][0]
+        #     # col = np.where(v.index_array == float(id2))[0][0]
+        #     # print(row, col)
+        #     # if key not in re_interactions.keys():
+        #     #     id1, id2 = key.split()
+        #     #     key = id2 + ' ' + id1
+        #     # print(v.validation_interactions[key], re_interactions[key])
+        #     if v.validation_interactions[key] != 0 and re_interactions[key] >0.8:
+        #         TP += 1
+        #     elif v.validation_interactions[key] != 0 and re_interactions[key] <0.8:
+        #         FN += 1
+        # for key in re_interactions:
+        #     if re_interactions[key] != 0:
+        #         if key not in v.validation_interactions.keys():
+        #             if key not in v.train_interactions.keys():
+        #             # if v.validation_interactions[key] == 0:
+        #                 FP += 1
+            #
+        print('TP:', TP)
+        print('FP:', FP)
+        print('TN:', TN)
+        print('FN:', FN)
+        precision = TP/(TP+FP)
+        recall = TP/(TP+FN)
+
+        print('precision:', precision)
+        print('recall:', recall)
+        print('f-score: ', 2*precision*recall/(precision + recall))
+
+    def hehe_approach(self):
+        for key in self.interaction:
+            self.interaction[key] = 1
+        self.create_pairs_for_data_set()  # create the most similar drug's mol/id according four similarities
+        allre = {}
+        result = {}
+        for item in self.validation_set:
+            # item = self.validation_set[key]
+            pair_id = self.maccs_pair_id[item.molregno]
+            pair_mol = self.maccs_pair_mol[item.molregno]
+            # print(pair_mol)
+
+            for key in self.wst_med:
+                target = self.wst_med[key]
+                if target.id != item.id and pair_id != target.id:
+                    key = target.id + ' ' + item.id
+                    pair_target_key = pair_id + ' ' + target.id
+                    pair_target_key2 = target.id + ' ' + pair_id
+                    if pair_target_key in self.interaction.keys():
+                        result[key] = self.interaction[pair_target_key] * self.sim_by_mol(pair_mol, target.molregno, 0)
+                    elif pair_target_key2 in self.interaction.keys():  # try another key
+                        result[key] = self.interaction[pair_target_key2] * self.sim_by_mol(pair_mol, target.molregno, 0)
+                    else:
+                        result[key] = 0
+                else:
+                    key = target.id + ' ' + item.id
+                    result[key] = 0
+            allre = result
+            # print('get result')
+
+        TP = 0  # predict 1, actual 1
+        TN = 0  # predict 0, actual 0
+        FN = 0  # predict 0, actual 1
+        FP = 0  # predict 1, actual 0
+        for item in self.validation_set:
+            for key in self.wst_med:
+                target = self.wst_med[key]
+                if target.id != item.id:
+                    key = target.id + ' ' + item.id
+                    key2 = item.id + ' ' + target.id
+                    if key in self.interaction.keys():
+                        if allre[key] >0:#== 1:  # key in self.interaction.keys() -> interaction[key] must be 1
+                            TP += 1
+                        else:
+                            FN += 1
+                    elif key2 in self.interaction.keys():
+                        if allre[key] >0:#== 1:
+                            TP += 1
+                        else:
+                            FN += 1
+                    elif allre[key] >0:#== 1:
+                        FP += 1
+                    elif allre[key] <=0:#== 0:
+                        TN += 1
+        print('TP:', TP)
+        print('FP:', FP)
+        print('TN:', TN)
+        print('FN:', FN)
+        precision = TP / (TP + FP)
+        recall = TP / (TP + FN)
+
+        print('precision:', precision)
+        print('recall:', recall)
+        print('f-score: ', 2 * precision * recall / (precision + recall))
+        print((TP+TN)/(TP+TN+FP+FN))
+        return allre
+
+
+
+
+
 
 start = time.time()
 
@@ -699,56 +849,39 @@ interaction_dict = Interaction.read_interactions_to_dict(wstmed_id)  # 128535 in
 v = Validation(wstmed_id, maccs_dict, interaction_dict)
 v.divide_data()
 v.input_sims(maccs_dict, ecfp4_dict, fcfp4_dict, topo_dict)
+
+count = {}
+for interkey in v.interaction:
+    id1, id2 = interkey.split()
+    if id1 not in count.keys():
+        count[id1] = 1
+    else:
+        count[id1] = count[id1] + 1
+
+    if id2 not in count.keys():
+        count[id2] = 1
+    else:
+        count[id2] = count[id2] + 1
+# a = v.hehe_approach()
 # v.sim = maccs_dict
 # v.create_pairs_for_validation_set()
 # v.create_pairs_for_train_set()
 # v.create_interactions_train_set()
-# portions = [10, 85, 88, 90, 92]
-# for item in portions:
-v.logistic_regression(85)
+portions = [40, 50, 60, 70, 80]
+for item in portions:
+    v.logistic_regression(item)
+# v.logistic_regression(75)
 # v.create_interactions_train_set()
 # v.create_id_mol_dict()
 # start = time.time()
-
+# v.hehe_approach()
 # re = 0
+
 # train_interactions = 0
 # validation_interactions = 0
 #
-# re_interactions = {}
-# for row in range(0, 1366):
-#     for col in range(0, 1366):
-#         id1 = str(int(v.index_array[row]))
-#         id2 = str(int(v.index_array[col]))
-#         key = id1 + ' ' + id2
-#         re_interactions[key] = re[row][col]
-#
-# TP = 0
-# FN = 0
-# FP = 0
-# for key in validation_interactions:
-#     id1, id2 = key.split()
-#     row = np.where(v.index_array == float(id1))[0][0]
-#     col = np.where(v.index_array == float(id2))[0][0]
-#     # print(row, col)
-#     if validation_interactions[key] != 0 and re_interactions[key] != 0:
-#         TP += 1
-#     elif validation_interactions[key] != 0 and re_interactions[key] ==0:
-#         FN += 1
-# for key in re_interactions:
-#     if re_interactions[key] != 0:
-#         if key in validation_interactions.keys():
-#             if validation_interactions[key] == 0:
-#                 FP += 1
-#     print(validation_interactions[key], re_interactions[key])
-# print('TP:', TP)
-# print('FP:', FP)
-# # print('TN:', TN)
-# print('FN:', FN)
-# precision = TP/(TP+FP)
-# recall = TP/(TP+FN)
-#
-# print('precision:', precision)
-# print('recall:', recall)
-# print('f-score: ', 2*precision*recall/(precision + recall))
-# end = time.time()
-# print('time: ', end - start)
+# re = np.array(list(count.values()))
+# re.tofile('a.csv', ',')
+
+end = time.time()
+print('time: ', end - start)
