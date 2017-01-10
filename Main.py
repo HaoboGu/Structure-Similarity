@@ -851,28 +851,6 @@ class Validation:
         return allre
 
 
-def read_drugbank_data():
-    # read interaction data
-    interaction_file = open('data/interacts.csv')
-    interact_dict = {}
-    line = interaction_file.readline()
-    while line:
-        db_id1, db_id2, interact_level = line[0:-1].split('\t')
-        interact_dict[db_id1, db_id2] = int(interact_level)  # use multiple keys
-        line = interaction_file.readline()
-    interaction_file.close()
-
-    # read similarity data
-    similarity_file = open('data/chemicalsimilarity.csv')
-    similarity_dict = {}
-    line = similarity_file.readline()
-    while line:
-        print(line)
-        line = similarity_file.readline()
-        db_id1, db_id2, similarity = line[0:-1].split('\t')
-        similarity_dict[db_id1, db_id2] = similarity
-    similarity_file.close()
-
 start = time.time()
 
 maccs_dict, ecfp4_dict, fcfp4_dict, topo_dict = Similarity.read_sims_to_dict()  # 1864590
