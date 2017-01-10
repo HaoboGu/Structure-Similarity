@@ -6,8 +6,7 @@ import xlsxwriter
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import roc_curve
-import csv
+from sklearn.metrics import roc_auc_score
 
 class Similarity:
     def __init__(self, med_molregno1=0, med_molregno2=0, maccs=0, fcfp4=0, ecfp4=0, topo=0, weighted_sim=0):
@@ -215,8 +214,6 @@ class Interaction:  # interaction between western medicines
     def interaction_str(self):
         return self.id + ' ' + self.medicine_id1 + ' ' + self.medicine_name1 + ' ' + self.medicine_id2 + ' ' +\
                self.medicine_name2 + ' ' + self.interaction_level
-
-
 
 
 class Validation:
@@ -478,8 +475,11 @@ class Validation:
         self.val = val
         self.result = lr.predict(val)
         prob_re = lr.predict_proba(val)
+        prob_re= prob_re.transpose()
+        auroc = roc_auc_score(inters, prob_re[1])
+        print('roc score:', auroc)
         # self.result = svm.predict(val)
-        # prob_re= prob_re.transpose()
+
         # print(prob_re.__len__(), inters.__len__())
         # fpr_grd_lm, tpr_grd_lm, _ = roc_curve(inters, prob_re[0])
         # plt.plot(fpr_grd_lm, tpr_grd_lm, label='GBT + LR')
@@ -797,7 +797,8 @@ class Validation:
                     result[key] = 0
             allre = result
             # print('get result')
-
+        y_ture = []
+        y_score = []
         TP = 0  # predict 1, actual 1
         TN = 0  # predict 0, actual 0
         FN = 0  # predict 0, actual 1
@@ -811,17 +812,31 @@ class Validation:
                     if key in self.interaction.keys():
                         if allre[key] >0:#== 1:  # key in self.interaction.keys() -> interaction[key] must be 1
                             TP += 1
+                            y_score.append(allre[key])
+                            y_ture.append(1)
                         else:
                             FN += 1
+                            y_score.append(allre[key])
+                            y_ture.append(1)
                     elif key2 in self.interaction.keys():
                         if allre[key] >0:#== 1:
                             TP += 1
+                            y_score.append(allre[key])
+                            y_ture.append(1)
                         else:
                             FN += 1
+                            y_score.append(allre[key])
+                            y_ture.append(1)
                     elif allre[key] >0:#== 1:
                         FP += 1
+                        y_score.append(allre[key])
+                        y_ture.append(0)
                     elif allre[key] <=0:#== 0:
                         TN += 1
+                        y_score.append(allre[key])
+                        y_ture.append(0)
+        auroc = roc_auc_score(y_ture, y_score)
+        print('auroc: ', auroc)
         print('TP:', TP)
         print('FP:', FP)
         print('TN:', TN)
@@ -836,9 +851,27 @@ class Validation:
         return allre
 
 
+def read_drugbank_data():
+    # read interaction data
+    interaction_file = open('data/interacts.csv')
+    interact_dict = {}
+    line = interaction_file.readline()
+    while line:
+        db_id1, db_id2, interact_level = line[0:-1].split('\t')
+        interact_dict[db_id1, db_id2] = int(interact_level)  # use multiple keys
+        line = interaction_file.readline()
+    interaction_file.close()
 
-
-
+    # read similarity data
+    similarity_file = open('data/chemicalsimilarity.csv')
+    similarity_dict = {}
+    line = similarity_file.readline()
+    while line:
+        print(line)
+        line = similarity_file.readline()
+        db_id1, db_id2, similarity = line[0:-1].split('\t')
+        similarity_dict[db_id1, db_id2] = similarity
+    similarity_file.close()
 
 start = time.time()
 
@@ -867,14 +900,15 @@ for interkey in v.interaction:
 # v.create_pairs_for_validation_set()
 # v.create_pairs_for_train_set()
 # v.create_interactions_train_set()
-portions = [40, 50, 60, 70, 80]
-for item in portions:
-    v.logistic_regression(item)
+# portions = [40, 50, 60, 70, 80]
+# portions = [30, 80]
+# for item in portions:
+#     v.logistic_regression(item)
 # v.logistic_regression(75)
 # v.create_interactions_train_set()
 # v.create_id_mol_dict()
 # start = time.time()
-# v.hehe_approach()
+v.hehe_approach()
 # re = 0
 
 # train_interactions = 0
