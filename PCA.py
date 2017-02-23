@@ -1,30 +1,7 @@
 from sklearn.decomposition import PCA
 import numpy as np
 
-def read_sim_matrix():
-    sim = open('data/chemicalsimilarity.csv')
-    index_dict = {}
-    line = sim.readline()
-    sim_dict = {}
-    num_of_drug = 0
-    while line:
-        id1, id2, similarity = line[0:-1].split('\t')
-        if id1 not in index_dict.keys():
-            index_dict[id1] = num_of_drug  # store index of drug
-            num_of_drug += 1
-        if id2 not in index_dict.keys():
-            index_dict[id2] = num_of_drug  # store index of drug
-            num_of_drug += 1
-        sim_dict[id1, id2] = float(similarity)
-        line = sim.readline()
-    sim.close()
-    matrix = np.zeros([num_of_drug, num_of_drug])
-    for key in sim_dict:
-        index1 = index_dict[key[0]]
-        index2 = index_dict[key[1]]
-        matrix[index1, index2] = sim_dict[key]
-        matrix[index2, index1] = sim_dict[key]
-    return matrix
+
 
 def read_similarities():
     chemical_sim = open('data/chemicalsimilarity.csv')
