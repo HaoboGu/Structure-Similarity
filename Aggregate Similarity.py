@@ -76,10 +76,9 @@ def read_similarities():  # all keys are order sensitive
 
     return atc_sim_dict, chemical_sim_dict, dist_sim_dict, go_sim_dict, ligand_sim_dict, seq_sim_dict, sideeffect_sim_dict
 
-
-def read_interacts():
+def read_interacts(filename):
     # read interaction data
-    interaction_file = open('data/interacts.csv')
+    interaction_file = open(filename)
     interact_dict = {}
     line = interaction_file.readline()
     while line:
@@ -90,17 +89,9 @@ def read_interacts():
     interaction_file.close()
     return interact_dict
 
-
-def select_pairs(interacts, common_key):
+def select_pairs(interacts, sim_keys):
     # select interacted/non-interacted pairs as train set
 
-    # first remove interacts without similarities
-
-    for key in interacts.copy():  # use copy to avoid RuntimeError: dictionary changed size during iteration
-        if key not in common_key:
-            interacts.pop(key)
-
-    #
     num = 0
     num_non_inter = 0
     train_pair = {}
@@ -109,123 +100,134 @@ def select_pairs(interacts, common_key):
         num += 1
 
     # the number of non-interacted pairs should be same as interacted pairs
-    sim_key = (chemical_sim.keys() & dist_sim.keys() & go_sim.keys() & seq_sim.keys())
-    for key in sim_key:
-        if num_non_inter < num:
-                train_pair[key] = 0
-                num_non_inter += 1
-        else:
-            break
-
-    # num_atc, num_chem, num_dist, num_go, num_lig, num_seq, num_side = [0, 0, 0, 0, 0, 0, 0]
-    # for key in train_pair:
-    #     if train_pair[key] == 1:
-    #         if key not in atc_sim.keys():
-    #             num_atc += 1  # out
-    #         if key not in chemical_sim.keys():
-    #             num_chem += 1
-    #         if key not in dist_sim.keys():
-    #             num_dist += 1
-    #         if key not in go_sim.keys():
-    #             num_go += 1
-    #         if key not in ligand_sim.keys():
-    #             num_lig += 1  # out
-    #         if key not in seq_sim.keys():
-    #             num_seq += 1
-    #         if key not in sideeffect_sim.keys():
-    #             num_side += 1  # out
-    # print(num_atc, num_chem, num_dist, num_go, num_lig, num_seq, num_side)
+    for key in sim_keys:
+        if key not in train_pair.keys():
+            if num_non_inter < num:
+                    train_pair[key] = 0
+                    num_non_inter += 1
+            else:
+                break
     return train_pair
 
-
-def aggregate_similarities(chemical_sim, dist_sim, go_sim, seq_sim, weight):
-    weighted_sim = {}
-    for key in chemical_sim:
-        weighted_sim[key] = weight[0]*chemical_sim[key] + weight[1]*dist_sim[key] + \
-                            weight[2]*go_sim[key] + weight[3]*seq_sim[key]
-    return weighted_sim
-
-
-def log_reg(weighted_sim, samples):
-    num = 0
+def create_avg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim):
+    feature_atc = []
+    feature_chem = []
+    feature_dist = []
+    feature_seq = []
+    feature_go = []
+    true_value = []
     train_set = []
-    for key in samples:
+    for id1, id2 in samples.keys():  # test drug a and c
+        sa, sc, sd, sg, ss = [0, 0, 0, 0, 0]
+        na, nc, nd, ng, ns = [0, 0, 0, 0, 0]
+        for key in sim_keys:  # key: (a, b)
+            if (id1 in key and id1 != key[1]) and (id2, key[1]) in interacts:
+                # "id1 in key and id1 != key[1]" means key[0] is a(id1), key[1] is b
+                # "(id2,key[1]) in interacts" means b-c interact
+                # 此处如果添加一个sim值的限制的话，会导致每个sim参与平均的n的不同，否则都相同
+                # n=0意味着没有满足条件的b，使得ab有sim，bc反应
+                thres = 0.4
+                if atc_sim[key] > thres:
+                    sa += atc_sim[key]
+                    na += 1
+                if chemical_sim[key] > thres:
+                    sc += chemical_sim[key]
+                    nc += 1
+                if dist_sim[key] > thres:
+                    sd += dist_sim[key]
+                    nd += 1
+                if go_sim[key] > thres:
+                    sg += go_sim[key]
+                    ng += 1
+                if seq_sim[key] > thres:
+                    ss += seq_sim[key]
+                    ns += 1
+        if na != 0:
+            fa = sa / na
+        else:
+            fa = 0
+        if nc != 0:
+            fc = sc / nc
+        else:
+            fc = 0
+        if nd != 0:
+            fd = sd / nd
+        else:
+            fd = 0
+        if ng != 0:
+            fg = sg / ng
+        else:
+            fg = 0
+        if ns != 0:
+            fs = ss / ns
+        else:
+            fs = 0
+        feature_atc.append(fa)
+        feature_chem.append(fc)
+        feature_dist.append(fd)
+        feature_go.append(fg)
+        feature_seq.append(fs)
+        true_value.append(samples[id1, id2])
+        train_set.append([fa,fc,fd,fg,fs,samples[id1,id2]])
 
-        id1 = key[0]
-        candidate = []  # a list of candidate pairs ab1~abn
+    # for i in range(0, feature_atc.__len__()):
+    #     print(feature_atc[i], feature_chem[i], feature_dist[i], feature_go[i], feature_seq[i], true_value[i])
+    return train_set
 
-        for simkey in weighted_sim:
-            if id1 in simkey and weighted_sim[simkey] > 0.2:
-                candidate.append(simkey)
+def create_max_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim):
+    feature_atc = []
+    feature_chem = []
+    feature_dist = []
+    feature_seq = []
+    feature_go = []
+    true_value = []
+    train_set = []
+    for id1, id2 in samples.keys():  # test drug a and c
+        ma, mc, md, mg, ms = [0, 0, 0, 0, 0]
+        for key in sim_keys:  # key: (a, b)
+            if (id1 in key and id1 != key[1]) and (id2, key[1]) in interacts:
+                # "id1 in key and id1 != key[1]" means key[0] is a(id1), key[1] is b
+                # "(id2,key[1]) in interacts" means b-c interact
+                thres = 0.4
+                if atc_sim[key] > ma and atc_sim[key] > thres:
+                    ma = atc_sim[key]
+                if chemical_sim[key] > mc and chemical_sim[key] > thres:
+                    mc = chemical_sim[key]
+                if dist_sim[key] > md and dist_sim[key] > thres:
+                    md = dist_sim[key]
+                if go_sim[key] > mg and go_sim[key] > thres:
+                    mg = go_sim[key]
+                if seq_sim[key] > ms and seq_sim[key] > thres:
+                    ms = seq_sim[key]
+        feature_atc.append(ma)
+        feature_chem.append(mc)
+        feature_dist.append(md)
+        feature_go.append(mg)
+        feature_seq.append(ms)
+        true_value.append(samples[id1, id2])
+        train_set.append([ma, mc, md, mg, ms, samples[id1, id2]])
 
-        max_sim = 0
-        # max_sim_key = 0
-        for interkey in samples:
-            if interkey != key:
-                if id1 in interkey and weighted_sim[interkey]>max_sim:
-                    # max_sim_key = interkey
-                    max_sim = weighted_sim[interkey]
-        # print(max_sim)
-        prob = 0
-        num_cand = 0
-        for item in candidate:
-            if item in samples:
-                prob += weighted_sim[item]
-                num_cand += 1
-        # if max_sim is not 0:
-        #     print(max_sim)
-        if num_cand is not 0:
-            prob = float(prob) / num_cand
-        train_set.append([prob, max_sim, samples[key]])
-        # print(num)
-        num += 1
+    return train_set
+
+## test functions ##   atc, chemical, dist, go, seq
+start = time.time()
+
+for i in range(1,11):
+    filename = 'data/interacts_r' + str(i) + '.csv'
+    atc_sim, chemical_sim, dist_sim, go_sim, ligand_sim, seq_sim, sideeffect_sim = read_similarities()
+    interacts = read_interacts(filename)
+    sim_keys = (chemical_sim.keys() & atc_sim.keys())  # keys of chem, dist, go, seq are same
+    samples = select_pairs(interacts, sim_keys)
+    # print(samples)
+    train_set = create_max_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim)
     train = np.array(train_set)
-    target = train.transpose()[2]
-    train = train.transpose()[0:2]
+    target = train.transpose()[5]
+    train = train.transpose()[0:5]
     train = train.transpose()
-    logistic = lr()
+    # print(train)
+    logistic = lr(random_state=1)
     logistic.fit(train, target)
-    re = logistic.predict(train)
+    print(logistic.coef_)
+    end = time.time()
+    print(end-start)
 
-    correct = 0
-    for index in range(0, re.__len__()):
-        if re[index] == target[index]:
-            correct += 1
-    return correct
-
-## test functions ##
-start = time.time()
-atc_sim, chemical_sim, dist_sim, go_sim, ligand_sim, seq_sim, sideeffect_sim = read_similarities()
-interacts = read_interacts()
-common_key = (chemical_sim.keys() & dist_sim.keys() & go_sim.keys() & seq_sim.keys() & interacts.keys())
-samples = select_pairs(interacts, common_key)
-
-start = time.time()
-correct = 0
-num = 1
-step = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45]
-results = []
-for w1 in step:
-    w4 = 0.5 - w1
-    for w2 in step:
-        w3 = 0.5 - w2
-        weight = [w1, w2, w3, w4]
-        weighted_sim = aggregate_similarities(chemical_sim, dist_sim, go_sim, seq_sim, weight)
-        tmp = log_reg(weighted_sim, samples)
-        if tmp > correct:
-            correct = tmp
-            results.append([weight, tmp])
-            optimized_w = weight
-        print('loop ', num, '....')
-        num += 1
-
-
-print(correct)
-end = time.time()
-print(end-start)
-
-result1 = [[0.4, 0.1, 0.2, 0.3], 444] #12,34
-result2 = [[0.45, 0.2, 0.05, 0.3], 447] #13,24
-result3 = [[0.15, 0.05, 0.45, 0.35], 456] #14, 23
-
-# baseline = [0.25, 0.25, 0.25, 0.25], fold1:0.4696/0.9159; fold2:0.4705/0.9047; fold3:0.5243/0.9325
