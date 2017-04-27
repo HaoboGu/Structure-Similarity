@@ -1,7 +1,13 @@
 import numpy as np
 import time
+import math
 from sklearn.linear_model import LogisticRegression as lr
-
+from sklearn.metrics import roc_auc_score
+from sklearn.metrics import average_precision_score as aupr_score
+from sklearn.preprocessing import normalize
+from sklearn.linear_model import LogisticRegressionCV as lrcv
+import sklearn.feature_selection as fs
+import matplotlib.pyplot as plt
 
 def read_similarities():  # all keys are order sensitive
     chemical_sim = open('data/chemicalsimilarity.csv')
@@ -109,7 +115,7 @@ def select_pairs(interacts, sim_keys):
                 break
     return train_pair
 
-def create_avg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim):
+def create_avg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts):
     feature_atc = []
     feature_chem = []
     feature_dist = []
@@ -174,7 +180,159 @@ def create_avg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_s
     #     print(feature_atc[i], feature_chem[i], feature_dist[i], feature_go[i], feature_seq[i], true_value[i])
     return train_set
 
-def create_max_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim):
+def create_avg_deg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts, degree, avg_deg):
+    feature_atc = []
+    feature_chem = []
+    feature_dist = []
+    feature_seq = []
+    feature_go = []
+    true_value = []
+    train_set = []
+    for id1, id2 in samples.keys():  # test drug a and c
+        sa, sc, sd, sg, ss = [0, 0, 0, 0, 0]
+        na, nc, nd, ng, ns = [0, 0, 0, 0, 0]
+        for key in sim_keys:  # key: (a, b)
+            if (id1 in key and id1 != key[1]) and (id2, key[1]) in interacts:
+                # "id1 in key and id1 != key[1]" means key[0] is a(id1), key[1] is b
+                # "(id2,key[1]) in interacts" means b-c interact
+                # 此处如果添加一个sim值的限制的话，会导致每个sim参与平均的n的不同，否则都相同
+                # n=0意味着没有满足条件的b，使得ab有sim，bc反应
+                thres = 0.4
+                if atc_sim[key] > thres:
+                    # sa += atc_sim[key]
+                    sa += 2*atc_sim[key]/(1+math.exp(-((degree[key[1]]-avg_deg)/avg_deg)))
+                    na += 1
+                if chemical_sim[key] > thres:
+                    sc += 2*chemical_sim[key]/(1+math.exp(-((degree[key[1]]-avg_deg)/avg_deg)))
+                    nc += 1
+                if dist_sim[key] > thres:
+                    sd += 2*dist_sim[key]/(1+math.exp(-((degree[key[1]]-avg_deg)/avg_deg)))
+                    nd += 1
+                if go_sim[key] > thres:
+                    sg += 2*go_sim[key]/(1+math.exp(-((degree[key[1]]-avg_deg)/avg_deg)))
+                    ng += 1
+                if seq_sim[key] > thres:
+                    ss += 2*seq_sim[key]/(1+math.exp(-((degree[key[1]]-avg_deg)/avg_deg)))
+                    ns += 1
+        if na != 0:
+            fa = sa / na
+        else:
+            fa = 0
+        if nc != 0:
+            fc = sc / nc
+        else:
+            fc = 0
+        if nd != 0:
+            fd = sd / nd
+        else:
+            fd = 0
+        if ng != 0:
+            fg = sg / ng
+        else:
+            fg = 0
+        if ns != 0:
+            fs = ss / ns
+        else:
+            fs = 0
+        feature_atc.append(fa)
+        feature_chem.append(fc)
+        feature_dist.append(fd)
+        feature_go.append(fg)
+        feature_seq.append(fs)
+        true_value.append(samples[id1, id2])
+        train_set.append([fa,fc,fd,fg,fs,samples[id1,id2]])
+
+    # for i in range(0, feature_atc.__len__()):
+    #     print(feature_atc[i], feature_chem[i], feature_dist[i], feature_go[i], feature_seq[i], true_value[i])
+    return train_set
+
+def create_sum_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts):
+    feature_atc = []
+    feature_chem = []
+    feature_dist = []
+    feature_seq = []
+    feature_go = []
+    true_value = []
+    train_set = []
+    for id1, id2 in samples.keys():  # test drug a and c
+        sa, sc, sd, sg, ss = [0, 0, 0, 0, 0]
+        na, nc, nd, ng, ns = [0, 0, 0, 0, 0]
+        for key in sim_keys:  # key: (a, b)
+            if (id1 in key and id1 != key[1]) and (id2, key[1]) in interacts:
+                # "id1 in key and id1 != key[1]" means key[0] is a(id1), key[1] is b
+                # "(id2,key[1]) in interacts" means b-c interact
+                # 此处如果添加一个sim值的限制的话，会导致每个sim参与平均的n的不同，否则都相同
+                # n=0意味着没有满足条件的b，使得ab有sim，bc反应
+                thres = 0.4
+                if atc_sim[key] > thres:
+                    sa += atc_sim[key]
+                    na += 1
+                if chemical_sim[key] > thres:
+                    sc += chemical_sim[key]
+                    nc += 1
+                if dist_sim[key] > thres:
+                    sd += dist_sim[key]
+                    nd += 1
+                if go_sim[key] > thres:
+                    sg += go_sim[key]
+                    ng += 1
+                if seq_sim[key] > thres:
+                    ss += seq_sim[key]
+                    ns += 1
+
+        feature_atc.append(sa)
+        feature_chem.append(sc)
+        feature_dist.append(sd)
+        feature_go.append(sg)
+        feature_seq.append(ss)
+        true_value.append(samples[id1, id2])
+        train_set.append([sa,sc,sd,sg,ss,samples[id1,id2]])
+    return train_set
+
+def create_sum_deg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts, degree, avg_deg):
+    feature_atc = []
+    feature_chem = []
+    feature_dist = []
+    feature_seq = []
+    feature_go = []
+    true_value = []
+    train_set = []
+    for id1, id2 in samples.keys():  # test drug a and c
+        sa, sc, sd, sg, ss = [0, 0, 0, 0, 0]
+        na, nc, nd, ng, ns = [0, 0, 0, 0, 0]
+        for key in sim_keys:  # key: (a, b)
+            if (id1 in key and id1 != key[1]) and (id2, key[1]) in interacts:
+                # "id1 in key and id1 != key[1]" means key[0] is a(id1), key[1] is b
+                # "(id2,key[1]) in interacts" means b-c interact
+                # 此处如果添加一个sim值的限制的话，会导致每个sim参与平均的n的不同，否则都相同
+                # n=0意味着没有满足条件的b，使得ab有sim，bc反应
+                thres = 0.4
+                if atc_sim[key] > thres:
+                    sa += 2*atc_sim[key]/(1+math.exp(-((degree[key[1]]-avg_deg)/avg_deg)))
+                    na += 1
+                if chemical_sim[key] > thres:
+                    sc += 2*chemical_sim[key]/(1+math.exp(-((degree[key[1]]-avg_deg)/avg_deg)))
+                    nc += 1
+                if dist_sim[key] > thres:
+                    sd += 2*dist_sim[key]/(1+math.exp(-((degree[key[1]]-avg_deg)/avg_deg)))
+                    nd += 1
+                if go_sim[key] > thres:
+                    sg += 2*go_sim[key]/(1+math.exp(-((degree[key[1]]-avg_deg)/avg_deg)))
+                    ng += 1
+                if seq_sim[key] > thres:
+                    ss += 2*seq_sim[key]/(1+math.exp(-((degree[key[1]]-avg_deg)/avg_deg)))
+                    ns += 1
+
+        feature_atc.append(sa)
+        feature_chem.append(sc)
+        feature_dist.append(sd)
+        feature_go.append(sg)
+        feature_seq.append(ss)
+        true_value.append(samples[id1, id2])
+        train_set.append([sa,sc,sd,sg,ss,samples[id1,id2]])
+    return train_set
+
+def create_max_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts):
     feature_atc = []
     feature_chem = []
     feature_dist = []
@@ -209,25 +367,417 @@ def create_max_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_s
 
     return train_set
 
-## test functions ##   atc, chemical, dist, go, seq
-start = time.time()
+def create_max_deg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts, degree, avg_deg):
+    feature_atc = []
+    feature_chem = []
+    feature_dist = []
+    feature_seq = []
+    feature_go = []
+    true_value = []
+    train_set = []
+    for id1, id2 in samples.keys():  # test drug a and c
+        ma, mc, md, mg, ms = [0, 0, 0, 0, 0]
+        for key in sim_keys:  # key: (a, b)
+            if (id1 in key and id1 != key[1]) and (id2, key[1]) in interacts:
+                # "id1 in key and id1 != key[1]" means key[0] is a(id1), key[1] is b
+                # "(id2,key[1]) in interacts" means b-c interact
+                thres = 0.4
+                if atc_sim[key] > ma and atc_sim[key] > thres:
+                    ma = 2*atc_sim[key]/(1+math.exp(-((degree[key[1]]-avg_deg)/avg_deg)))
+                    # print('sim:', atc_sim[key], ',degree:', degree[key[1]], ', avg_deg:', avg_deg, ', feature:', ma)
+                if chemical_sim[key] > mc and chemical_sim[key] > thres:
+                    mc = 2*chemical_sim[key]/(1+math.exp(-((degree[key[1]]-avg_deg)/avg_deg)))
+                if dist_sim[key] > md and dist_sim[key] > thres:
+                    md = 2*dist_sim[key]/(1+math.exp(-((degree[key[1]]-avg_deg)/avg_deg)))
+                if go_sim[key] > mg and go_sim[key] > thres:
+                    mg = 2*go_sim[key]/(1+math.exp(-((degree[key[1]]-avg_deg)/avg_deg)))
+                if seq_sim[key] > ms and seq_sim[key] > thres:
+                    ms = 2*seq_sim[key]/(1+math.exp(-((degree[key[1]]-avg_deg)/avg_deg)))
+        feature_atc.append(ma)
+        feature_chem.append(mc)
+        feature_dist.append(md)
+        feature_go.append(mg)
+        feature_seq.append(ms)
+        true_value.append(samples[id1, id2])
+        train_set.append([ma, mc, md, mg, ms, samples[id1, id2]])
 
-for i in range(1,11):
-    filename = 'data/interacts_r' + str(i) + '.csv'
-    atc_sim, chemical_sim, dist_sim, go_sim, ligand_sim, seq_sim, sideeffect_sim = read_similarities()
-    interacts = read_interacts(filename)
-    sim_keys = (chemical_sim.keys() & atc_sim.keys())  # keys of chem, dist, go, seq are same
-    samples = select_pairs(interacts, sim_keys)
-    # print(samples)
-    train_set = create_max_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim)
-    train = np.array(train_set)
-    target = train.transpose()[5]
-    train = train.transpose()[0:5]
-    train = train.transpose()
-    # print(train)
-    logistic = lr(random_state=1)
-    logistic.fit(train, target)
-    print(logistic.coef_)
-    end = time.time()
-    print(end-start)
+    return train_set
+
+def create_min_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts):
+    feature_atc = []
+    feature_chem = []
+    feature_dist = []
+    feature_seq = []
+    feature_go = []
+    true_value = []
+    train_set = []
+    for id1, id2 in samples.keys():  # test drug a and c
+        ma, mc, md, mg, ms = [1, 1, 1, 1, 1]
+        for key in sim_keys:  # key: (a, b)
+            if (id1 in key and id1 != key[1]) and (id2, key[1]) in interacts:
+                # "id1 in key and id1 != key[1]" means key[0] is a(id1), key[1] is b
+                # "(id2,key[1]) in interacts" means b-c interact
+                thres = 0.4
+                if atc_sim[key] < ma and atc_sim[key] > thres:
+                    ma = atc_sim[key]
+                if chemical_sim[key] < mc and chemical_sim[key] > thres:
+                    mc = chemical_sim[key]
+                if dist_sim[key] < md and dist_sim[key] > thres:
+                    md = dist_sim[key]
+                if go_sim[key] < mg and go_sim[key] > thres:
+                    mg = go_sim[key]
+                if seq_sim[key] < ms and seq_sim[key] > thres:
+                    ms = seq_sim[key]
+        feature_atc.append(ma)
+        feature_chem.append(mc)
+        feature_dist.append(md)
+        feature_go.append(mg)
+        feature_seq.append(ms)
+        true_value.append(samples[id1, id2])
+        train_set.append([ma, mc, md, mg, ms, samples[id1, id2]])
+
+    return train_set
+
+def create_min_deg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts, degree, avg_deg):
+    feature_atc = []
+    feature_chem = []
+    feature_dist = []
+    feature_seq = []
+    feature_go = []
+    true_value = []
+    train_set = []
+    for id1, id2 in samples.keys():  # test drug a and c
+        ma, mc, md, mg, ms = [0, 0, 0, 0, 0]
+        for key in sim_keys:  # key: (a, b)
+            if (id1 in key and id1 != key[1]) and (id2, key[1]) in interacts:
+                # "id1 in key and id1 != key[1]" means key[0] is a(id1), key[1] is b
+                # "(id2,key[1]) in interacts" means b-c interact
+                thres = 0.0
+                if atc_sim[key] < ma and atc_sim[key] > thres:
+                    ma = 2*atc_sim[key]/(1+math.exp(-((degree[key[1]]-avg_deg)/avg_deg)))
+                    # print('sim:', atc_sim[key], ',degree:', degree[key[1]], ', avg_deg:', avg_deg, ', feature:', ma)
+                if chemical_sim[key] < mc and chemical_sim[key] > thres:
+                    mc = 2*chemical_sim[key]/(1+math.exp(-((degree[key[1]]-avg_deg)/avg_deg)))
+                if dist_sim[key] < md and dist_sim[key] > thres:
+                    md = 2*dist_sim[key]/(1+math.exp(-((degree[key[1]]-avg_deg)/avg_deg)))
+                if go_sim[key] < mg and go_sim[key] > thres:
+                    mg = 2*go_sim[key]/(1+math.exp(-((degree[key[1]]-avg_deg)/avg_deg)))
+                if seq_sim[key] < ms and seq_sim[key] > thres:
+                    ms = 2*seq_sim[key]/(1+math.exp(-((degree[key[1]]-avg_deg)/avg_deg)))
+        feature_atc.append(ma)
+        feature_chem.append(mc)
+        feature_dist.append(md)
+        feature_go.append(mg)
+        feature_seq.append(ms)
+        true_value.append(samples[id1, id2])
+        train_set.append([ma, mc, md, mg, ms, samples[id1, id2]])
+
+    return train_set
+
+def create_avdeg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts, degree, avg_deg):
+    feature_atc = []
+    feature_chem = []
+    feature_dist = []
+    feature_seq = []
+    feature_go = []
+    true_value = []
+    train_set = []
+    for id1, id2 in samples.keys():  # test drug a and c
+        sa, sc, sd, sg, ss = [0, 0, 0, 0, 0]
+        na, nc, nd, ng, ns = [0, 0, 0, 0, 0]
+        for key in sim_keys:  # key: (a, b)
+            if (id1 in key and id1 != key[1]) and (id2, key[1]) in interacts:
+                # "id1 in key and id1 != key[1]" means key[0] is a(id1), key[1] is b
+                # "(id2,key[1]) in interacts" means b-c interact
+                # 此处如果添加一个sim值的限制的话，会导致每个sim参与平均的n的不同，否则都相同
+                # n=0意味着没有满足条件的b，使得ab有sim，bc反应
+                thres = 0.4
+                if atc_sim[key] > thres:
+                    # sa += atc_sim[key]
+                    sa += degree[key[1]]
+                    na += 1
+                if chemical_sim[key] > thres:
+                    sc += degree[key[1]]
+                    nc += 1
+                if dist_sim[key] > thres:
+                    sd += degree[key[1]]
+                    nd += 1
+                if go_sim[key] > thres:
+                    sg += degree[key[1]]
+                    ng += 1
+                if seq_sim[key] > thres:
+                    ss += degree[key[1]]
+                    ns += 1
+        if na != 0:
+            fa = sa / na
+        else:
+            fa = 0
+        if nc != 0:
+            fc = sc / nc
+        else:
+            fc = 0
+        if nd != 0:
+            fd = sd / nd
+        else:
+            fd = 0
+        if ng != 0:
+            fg = sg / ng
+        else:
+            fg = 0
+        if ns != 0:
+            fs = ss / ns
+        else:
+            fs = 0
+        feature_atc.append(fa)
+        feature_chem.append(fc)
+        feature_dist.append(fd)
+        feature_go.append(fg)
+        feature_seq.append(fs)
+        true_value.append(samples[id1, id2])
+        train_set.append([fa,fc,fd,fg,fs,samples[id1,id2]])
+
+    # for i in range(0, feature_atc.__len__()):
+    #     print(feature_atc[i], feature_chem[i], feature_dist[i], feature_go[i], feature_seq[i], true_value[i])
+    return train_set
+
+def create_deg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts, degree, avg_deg):
+    feature_atc = []
+    feature_chem = []
+    feature_dist = []
+    feature_seq = []
+    feature_go = []
+    true_value = []
+    train_set = []
+    for id1, id2 in samples.keys():  # test drug a and c
+        sa, sc, sd, sg, ss = [0, 0, 0, 0, 0]
+        na, nc, nd, ng, ns = [0, 0, 0, 0, 0]
+        for key in sim_keys:  # key: (a, b)
+            if (id1 in key and id1 != key[1]) and (id2, key[1]) in interacts:
+                # "id1 in key and id1 != key[1]" means key[0] is a(id1), key[1] is b
+                # "(id2,key[1]) in interacts" means b-c interact
+                # 此处如果添加一个sim值的限制的话，会导致每个sim参与平均的n的不同，否则都相同
+                # n=0意味着没有满足条件的b，使得ab有sim，bc反应
+                thres = 0.4
+                if atc_sim[key] > thres:
+                    # sa += atc_sim[key]
+                    na += 1
+                if chemical_sim[key] > thres:
+                    nc += 1
+                if dist_sim[key] > thres:
+                    nd += 1
+                if go_sim[key] > thres:
+                    ng += 1
+                if seq_sim[key] > thres:
+                    ns += 1
+        if na != 0:
+            fa = degree[key[0]] / avg_deg
+        else:
+            fa = 0
+        if nc != 0:
+            fc = degree[key[0]] / avg_deg
+        else:
+            fc = 0
+        if nd != 0:
+            fd = degree[key[0]] / avg_deg
+        else:
+            fd = 0
+        if ng != 0:
+            fg = degree[key[0]] / avg_deg
+        else:
+            fg = 0
+        if ns != 0:
+            fs = degree[key[0]] / avg_deg
+        else:
+            fs = 0
+        feature_atc.append(fa)
+        feature_chem.append(fc)
+        feature_dist.append(fd)
+        feature_go.append(fg)
+        feature_seq.append(fs)
+        true_value.append(samples[id1, id2])
+        train_set.append([fa,fc,fd,fg,fs,samples[id1,id2]])
+
+    return train_set
+
+def create_ratio_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts, degree, avg_deg):
+    feature_atc = []
+    feature_chem = []
+    feature_dist = []
+    feature_seq = []
+    feature_go = []
+    true_value = []
+    train_set = []
+    for id1, id2 in samples.keys():  # test drug a and c
+        sa, sc, sd, sg, ss = [0, 0, 0, 0, 0]
+        na, nc, nd, ng, ns = [0, 0, 0, 0, 0]
+        for key in sim_keys:  # key: (a, b)
+            if (id1 in key and id1 != key[1]) and (id2, key[1]) in interacts:
+                # "id1 in key and id1 != key[1]" means key[0] is a(id1), key[1] is b
+                # "(id2,key[1]) in interacts" means b-c interact
+                # 此处如果添加一个sim值的限制的话，会导致每个sim参与平均的n的不同，否则都相同
+                # n=0意味着没有满足条件的b，使得ab有sim，bc反应
+                thres = 0.4
+                if atc_sim[key] > thres:
+                    # sa += atc_sim[key]
+                    na += 1
+                if chemical_sim[key] > thres:
+                    nc += 1
+                if dist_sim[key] > thres:
+                    nd += 1
+                if go_sim[key] > thres:
+                    ng += 1
+                if seq_sim[key] > thres:
+                    ns += 1
+        if na != 0:
+            fa = degree[key[0]] / na
+        else:
+            fa = 0
+        if nc != 0:
+            fc = degree[key[0]] / nc
+        else:
+            fc = 0
+        if nd != 0:
+            fd = degree[key[0]] / nd
+        else:
+            fd = 0
+        if ng != 0:
+            fg = degree[key[0]] / ng
+        else:
+            fg = 0
+        if ns != 0:
+            fs = degree[key[0]] / ns
+        else:
+            fs = 0
+        feature_atc.append(fa)
+        feature_chem.append(fc)
+        feature_dist.append(fd)
+        feature_go.append(fg)
+        feature_seq.append(fs)
+        true_value.append(samples[id1, id2])
+        train_set.append([fa,fc,fd,fg,fs,samples[id1,id2]])
+
+    return train_set
+
+def compute_avg_deg(interacts):
+    degree = {}
+    for id1, id2 in interacts:
+        if id1 not in degree.keys():
+            degree[id1] = 1
+        else:
+            degree[id1] += 1
+
+        if id2 not in degree.keys():
+            degree[id2] = 1
+        else:
+            degree[id2] += 1
+    for key in degree:
+        degree[key] = int(degree[key]/2)
+    l = list(degree.values())
+    avg_deg = int(sum(l)/len(l))
+    # print(avg_deg)
+    return degree, avg_deg
+
+
+start = time.time()
+filename = 'data/interacts_all.csv'
+atc_sim, chemical_sim, dist_sim, go_sim, ligand_sim, seq_sim, sideeffect_sim = read_similarities()
+interacts = read_interacts(filename)
+sim_keys = (chemical_sim.keys() & atc_sim.keys())  # keys of chem, dist, go, seq are same
+samples = select_pairs(interacts, sim_keys)
+degree, avg_deg = compute_avg_deg(samples)
+train_set = create_avg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts)
+train_set2 = create_max_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts)
+train_set3 = create_avdeg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts, degree, avg_deg)
+train_set4 = create_max_deg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts, degree, avg_deg)
+train_set5 = create_avg_deg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts, degree, avg_deg)
+train_set6 = create_sum_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts)
+train_set7 = create_sum_deg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts, degree, avg_deg)
+train_set8 = create_min_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts)
+train_set9 = create_ratio_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts, degree, avg_deg)
+train_set10 = create_deg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts, degree, avg_deg)
+
+
+train1 = np.array(train_set)
+target = train1.transpose()[5]
+train1 = train1.transpose()[0:5]  # train1: avg_sim
+train1 = normalize(train1, 'max')
+
+train2 = np.array(train_set2)
+train2 = train2.transpose()[0:5]  # train2: max_sim
+train2 = normalize(train2, 'max')
+
+train3 = np.array(train_set3)
+train3 = train3.transpose()[0:5]  # train3: avg_degree
+train3 = normalize(train3, 'max')
+
+train4 = np.array(train_set4)
+train4 = train4.transpose()[0:5]  # train4: max_sim*deg
+train4 = normalize(train4, 'max')
+
+train5 = np.array(train_set5)
+train5 = train5.transpose()[0:5]  # train5: avg_sim*deg
+train5 = normalize(train5, 'max')
+
+train6 = np.array(train_set6)
+train6 = train6.transpose()[0:5]  # train6: sum_sim
+train6 = normalize(train6, 'max')
+
+train7 = np.array(train_set7)
+train7 = train7.transpose()[0:5]  # train7: sum_(sim*deg)
+train7 = normalize(train7, 'max')
+
+train8 = np.array(train_set8)
+train8 = train8.transpose()[0:5]  # train8: min_sim
+train8 = normalize(train8, 'max')
+
+train9 = np.array(train_set9)
+train9 = train9.transpose()[0:5]  # train9: ratio(degree_a/num_b)
+train9 = normalize(train9, 'max')
+
+train10 = np.array(train_set10)
+train10 = train10.transpose()[0:5]  # train10: degree
+train10 = normalize(train10, 'max')
+
+
+
+t = np.concatenate((train1, train2, train3, train4, train5, train6, train7, train8, train9, train10),0)
+t = t.transpose()
+train = t
+
+# maxCs = []
+# for kk in range(1,51):
+#     train_new = fs.SelectKBest(fs.f_classif, k=kk).fit_transform(t, target)
+#     train = train_new
+C = [10, 100]
+l = lrcv(Cs=C, cv=10, scoring='roc_auc', penalty='l2', random_state=1, solver='liblinear', n_jobs=-1)
+l.fit(train, target)
+re = l.predict(train)
+a = l.scores_[1].transpose()
+print('average scores for Cs of 10 folds: ', [a[i].mean() for i in range(0, 2)])
+# print('scores: ', l.scores_)
+print('coefs for Cs: ', l.coef_)
+for i in range(0, 50):
+    print(float(l.coef_[0][i]))
+# print('k=', kk, ' with best score ', max(a[i].mean() for i in range(0, 8)))
+    # maxCs.append(max(a[i].mean() for i in range(0, 8)))
+
+end = time.time()
+print(end-start)
+
+
+# plt.interactive(False)
+# ax = range(1,51)
+# plt.plot(ax, maxCs, 'r.')
+# plt.show()
+
+# logistic = lr(penalty='l1', C=1.0, random_state=1, solver='liblinear', n_jobs=-1)
+# logistic.fit(train, target)
+# re = logistic.predict(train)
+# auroc = roc_auc_score(target, re)
+# aupr = aupr_score(target, re)
+#
+# print('roc: ', auroc)
+# print('aupr: ', aupr)
+# print(logistic.coef_)
+
 
