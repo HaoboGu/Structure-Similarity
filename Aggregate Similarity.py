@@ -928,30 +928,30 @@ end = time.time()
 print(end-start)
 
 ########################### Save data ###############################
-save_data(avg_atc, 'avg_atc.csv')
-save_data(avg_go, 'avg_go.csv')
-save_data(max_atc, 'max_atc.csv')
-save_data(max_chem, 'max_chem.csv')
-save_data(max_dist, 'max_dist.csv')
-save_data(avdeg_atc, 'avdeg_atc.csv')
-save_data(avdeg_chem, 'avdeg_chem.csv')
-save_data(avdeg_go, 'avdeg_go.csv')
-save_data(avdeg_seq, 'avdeg_seq.csv')
-save_data(avg_deg_atc, 'avg_deg_atc.csv')
-save_data(sum_atc, 'sum_atc.csv')
-save_data(sum_deg_atc, 'sum_deg_atc.csv')
-save_data(sum_deg_dist, 'sum_deg_dist.csv')
-save_data(sum_deg_go, 'sum_deg_go.csv')
-save_data(min_atc, 'min_atc.csv')
-save_data(min_chem, 'min_chem.csv')
-save_data(min_dist, 'min_dist.csv')
-save_data(min_seq, 'min_seq.csv')
-save_data(ratio_atc, 'ratio_atc.csv')
-save_data(ratio_chem, 'ratio_chem.csv')
-save_data(ratio_seq, 'ratio_seq.csv')
-save_data(deg_dist, 'deg_dist.csv')
-save_data(deg_go, 'deg_go.csv')
-save_data(deg_dist, 'deg_dist.csv')
+save_data(avg_atc, 'avg_atc.csv')  # 1.754
+save_data(avg_go, 'avg_go.csv')  # 0.207
+save_data(max_atc, 'max_atc.csv')  # 2.258
+save_data(max_chem, 'max_chem.csv')  # 1.919
+save_data(max_dist, 'max_dist.csv')  # 0.094
+save_data(avdeg_atc, 'avdeg_atc.csv')  # 1.854
+save_data(avdeg_chem, 'avdeg_chem.csv')  # -1.78
+save_data(avdeg_go, 'avdeg_go.csv')  # 0.113
+save_data(avdeg_seq, 'avdeg_seq.csv')  # -3.47
+save_data(avg_deg_atc, 'avg_deg_atc.csv')  # -5.01
+save_data(sum_atc, 'sum_atc.csv')  # 3.701
+save_data(sum_deg_atc, 'sum_deg_atc.csv')  # 0.901
+save_data(sum_deg_dist, 'sum_deg_dist.csv')  # -2.643
+save_data(sum_deg_go, 'sum_deg_go.csv')  # -2.432
+save_data(min_atc, 'min_atc.csv')  # 2.429
+save_data(min_chem, 'min_chem.csv')  # -1.517
+save_data(min_dist, 'min_dist.csv')  # -0.113
+save_data(min_seq, 'min_seq.csv')  # -1.62
+save_data(ratio_atc, 'ratio_atc.csv')  # -0.072
+save_data(ratio_chem, 'ratio_chem.csv')  # -0.475
+save_data(ratio_seq, 'ratio_seq.csv')  # -0.954
+save_data(deg_dist, 'deg_dist.csv')  # 1.003
+save_data(deg_go, 'deg_go.csv')  # 0.359
+save_data(deg_dist, 'deg_dist.csv')  # 1.517
 print('over')
 #####################################################################
 
