@@ -849,20 +849,20 @@ train_set10, deg_atc, deg_chem, deg_dist, deg_go, deg_seq = create_deg_features(
 
 train1 = np.array(train_set)
 target = train1.transpose()[5]
-# train1 = train1.transpose()[0:5]  # train1: avg_sim
-train1 = train1.transpose()[0:1]
+train1 = train1.transpose()[0:5]  # train1: avg_sim
+# train1 = train1.transpose()[0:1]
 train1 = normalize(train1, 'max')
 
 train2 = np.array(train_set2)
-# train2 = train2.transpose()[0:5]  # train2: max_sim
-train2 = train2.transpose()[0:2]
+train2 = train2.transpose()[0:5]  # train2: max_sim
+# train2 = train2.transpose()[0:2]
 train2 = normalize(train2, 'max')
 
 train3 = np.array(train_set3)
-# train3 = train3.transpose()[0:5]  # train3: avg_degree
-train31 = train3.transpose()[0:2]
-train32 = train3.transpose()[4:5]
-train3 = np.concatenate((train31, train32), 0)
+train3 = train3.transpose()[0:5]  # train3: avg_degree
+# train31 = train3.transpose()[0:2]
+# train32 = train3.transpose()[4:5]
+# train3 = np.concatenate((train31, train32), 0)
 train3 = normalize(train3, 'max')
 
 train4 = np.array(train_set4)
@@ -870,47 +870,54 @@ train4 = train4.transpose()[0:5]  # train4: max_sim*deg
 train4 = normalize(train4, 'max')
 
 train5 = np.array(train_set5)
-# train5 = train5.transpose()[0:5]  # train5: avg_sim*deg
-train5 = train5.transpose()[0:1]
+train5 = train5.transpose()[0:5]  # train5: avg_sim*deg
+# train5 = train5.transpose()[0:1]
 train5 = normalize(train5, 'max')
 
 train6 = np.array(train_set6)
-# train6 = train6.transpose()[0:5]  # train6: sum_sim
-train6 = train6.transpose()[0:1]
+train6 = train6.transpose()[0:5]  # train6: sum_sim
+# train6 = train6.transpose()[0:1]
 train6 = normalize(train6, 'max')
 
 train7 = np.array(train_set7)
-# train7 = train7.transpose()[0:5]  # train7: sum_(sim*deg)
-train71 = train7.transpose()[0:1]
-train72 = train7.transpose()[2:4]
-train7 = np.concatenate((train71, train72), 0)
+train7 = train7.transpose()[0:5]  # train7: sum_(sim*deg)
+# train71 = train7.transpose()[0:1]
+# train72 = train7.transpose()[2:4]
+# train7 = np.concatenate((train71, train72), 0)
 train7 = normalize(train7, 'max')
 
 train8 = np.array(train_set8)
-# train8 = train8.transpose()[0:5]  # train8: min_sim
-train81 = train8.transpose()[0:2]
-train82 = train8.transpose()[4:5]
-train8 = np.concatenate((train81, train82), 0)
+train8 = train8.transpose()[0:5]  # train8: min_sim
+# train81 = train8.transpose()[0:2]
+# train82 = train8.transpose()[4:5]
+# train8 = np.concatenate((train81, train82), 0)
 train8 = normalize(train8, 'max')
 
 train9 = np.array(train_set9)
-# train9 = train9.transpose()[0:5]  # train9: ratio(degree_a/num_b)
-train9 = train9.transpose()[4:5]
+train9 = train9.transpose()[0:5]  # train9: ratio(degree_a/num_b)
+# train9 = train9.transpose()[4:5]
 train9 = normalize(train9, 'max')
 
 train10 = np.array(train_set10)
-# train10 = train10.transpose()[0:5]  # train10: degree
-train10 = train10.transpose()[2:5]  # train10: degree
+train10 = train10.transpose()[0:5]  # train10: degree
+# train10 = train10.transpose()[2:5]  # train10: degree
 train10 = normalize(train10, 'max')
 
-t = np.concatenate((train1, train2, train3, train5, train6, train7, train8, train9, train10),0)
+t = np.concatenate((train1, train2, train3, train4, train5, train6, train7, train8, train9, train10),0)
 t = t.transpose()
 train = t
 
 # maxCs = []
 # for kk in range(1,51):
-#     train_new = fs.SelectKBest(fs.f_classif, k=kk).fit_transform(t, target)
-#     train = train_new
+sb = fs.SelectKBest(fs.f_regression, k=6)
+train_new = sb.fit(t, target)
+train = train_new
+print(sb.scores_)
+print(sb.scores_>1480)
+
+l = lr(penalty='l2', C=1.0, random_state=1, solver='liblinear', n_jobs=-1)
+l.fit(train, target)
+print(l.coef_)
 C = [10, 100]
 l = lrcv(Cs=C, cv=10, scoring='average_precision', penalty='l2', random_state=1, solver='liblinear', n_jobs=-1)
 l.fit(train, target)
@@ -929,10 +936,12 @@ print(end-start)
 
 ########################### Save data ###############################
 save_data(avg_atc, 'avg_atc.csv')  # 1.754
+save_data(avg_chem, 'avg_chem.csv')  # 0.207
 save_data(avg_go, 'avg_go.csv')  # 0.207
 save_data(max_atc, 'max_atc.csv')  # 2.258
 save_data(max_chem, 'max_chem.csv')  # 1.919
 save_data(max_dist, 'max_dist.csv')  # 0.094
+save_data(max_deg_atc, 'max_deg_atc.csv')
 save_data(avdeg_atc, 'avdeg_atc.csv')  # 1.854
 save_data(avdeg_chem, 'avdeg_chem.csv')  # -1.78
 save_data(avdeg_go, 'avdeg_go.csv')  # 0.113
@@ -951,6 +960,7 @@ save_data(ratio_chem, 'ratio_chem.csv')  # -0.475
 save_data(ratio_seq, 'ratio_seq.csv')  # -0.954
 save_data(deg_dist, 'deg_dist.csv')  # 1.003
 save_data(deg_go, 'deg_go.csv')  # 0.359
+save_data(deg_chem, 'deg_chem.csv')  # 0.359
 save_data(deg_dist, 'deg_dist.csv')  # 1.517
 print('over')
 #####################################################################
