@@ -43,23 +43,23 @@ def create_data(pos_interacts, neg_interacts):
 
 
 def divide_data(pos_interacts, neg_interacts):
-    # pos: 3624 = 362*9(3258)+366; neg: 85394=8539*9(76851)+8543
+    # pos: 3978 = 397*9(3573)+405; neg: 94932 = 9493*9(85437)+9495
     pos_keys = list(pos_interacts.keys())
     random.shuffle(pos_keys)
     pos_dicts = []
     for i in range(0, 9):
-        p = {pos_key: pos_interacts[pos_key] for pos_key in pos_keys[362*i:362*(i+1)]}
+        p = {pos_key: pos_interacts[pos_key] for pos_key in pos_keys[397*i:397*(i+1)]}
         pos_dicts.append(p)
-    p = {pos_key: pos_interacts[pos_key] for pos_key in pos_keys[3258:]}
+    p = {pos_key: pos_interacts[pos_key] for pos_key in pos_keys[3573:]}
     pos_dicts.append(p)
     
     neg_keys = list(neg_interacts.keys())
     random.shuffle(neg_keys)
     neg_dicts = []
     for i in range(0, 9):
-        p = {neg_key: neg_interacts[neg_key] for neg_key in neg_keys[8539*i:8539*(i+1)]}
+        p = {neg_key: neg_interacts[neg_key] for neg_key in neg_keys[9493*i:9493*(i+1)]}
         neg_dicts.append(p)
-    p = {neg_key: neg_interacts[neg_key] for neg_key in neg_keys[76851:]}
+    p = {neg_key: neg_interacts[neg_key] for neg_key in neg_keys[85437:]}
     neg_dicts.append(p)
 
     return pos_dicts, neg_dicts
@@ -99,7 +99,7 @@ for i in range(1, 11):
 # divide
 
 
-for j in range(0, 30):
+for j in range(1, 31):
     pos_dict, neg_dict = divide_data(pos_interacts, neg_interacts)
     for i in range(1, 11):
         # ten folds
