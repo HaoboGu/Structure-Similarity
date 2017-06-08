@@ -4,6 +4,7 @@ import os
 import csv
 import random
 
+
 def read_interacts(filename, pos_interacts, neg_interacts):
     # read interaction data
     interaction_file = open(filename)
@@ -28,20 +29,18 @@ def create_data(pos_interacts, neg_interacts):
         line = str(key[0]) +'\t'+ str(key[1]) +'\t'+ str(pos_interacts[key])+'\n'
         pos.append(line)
         all.append(line)
-        line = str(key[0]) +'\t'+ str(key[1]) +'\n'
-        ids.append(line)
 
     for key in neg_interacts:
         line = str(key[0]) + '\t' + str(key[1]) + '\t' + str(neg_interacts[key]) + '\n'
         neg.append(line)
         all.append(line)
-        line = str(key[0]) + '\t' + str(key[1]) + '\n'
+    random.shuffle(all)
+    for index in range(0, all.__len__()):
+        id1, id2, interacts = all[index].split('\t')
+        line = id1 + '\t' + id2 + '\n'
         ids.append(line)
-    # random.shuffle(all)
-    # for item in all:
-    #     tup = (item[0], item[1])
-    #     ids.append(tup)
     return pos, neg, all, ids
+
 
 def divide_data(pos_interacts, neg_interacts):
     # pos: 3624 = 362*9(3258)+366; neg: 85394=8539*9(76851)+8543
@@ -65,10 +64,10 @@ def divide_data(pos_interacts, neg_interacts):
 
     return pos_dicts, neg_dicts
 
+
 def write_interacts(pos_interacts, neg_interacts, path):
     if not os.path.exists(path):
         os.makedirs(path)
-
     pos, neg, all, ids = create_data(pos_interacts, neg_interacts)
     filename = path + '/interacts.csv'
     with open(filename, 'w') as f:
@@ -93,6 +92,8 @@ neg_interacts = {}
 for i in range(1, 11):
     filename = 'data/all/' + str(i) + '/interacts.csv'
     pos_interacts, neg_interacts = read_interacts(filename, pos_interacts, neg_interacts)
+    # print(filename)
+    # print(pos_interacts.__len__(), neg_interacts.__len__())
 
 
 # divide
@@ -102,7 +103,7 @@ for j in range(0, 30):
     pos_dict, neg_dict = divide_data(pos_interacts, neg_interacts)
     for i in range(1, 11):
         # ten folds
-        path = 'data/traningdata/all' + str(j) + '/' + str(i)
+        path = 'data/all_dataset' + str(j) + '/all/' + str(i)
         write_interacts(pos_dict[i-1], neg_dict[i-1], path)
 
 
