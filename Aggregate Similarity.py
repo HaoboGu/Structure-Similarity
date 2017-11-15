@@ -827,179 +827,146 @@ def save_data(dict, filename):
         line = str(key[0]) + '\t' + str(key[1]) + '\t' + str(dict[key]) + '\n'
         file.write(line)
     file.close()
+cal_type = 1  # 1: calculate weights, 2: calculate scores for features
+if cal_type == 1:
+    filename = 'data/interacts.csv'
+    atc_sim, chemical_sim, dist_sim, go_sim, ligand_sim, seq_sim, sideeffect_sim = read_similarities()
+    interacts = read_interacts(filename)
+    sim_keys = (chemical_sim.keys() & atc_sim.keys())  # keys of chem, dist, go, seq are same
+    samples = select_pairs(interacts, sim_keys)
+    degree, avg_deg = compute_avg_deg(samples)
+    train_set, avg_atc, avg_chem, avg_dist, avg_go, avg_seq = create_avg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts)
+    train_set2, max_atc, max_chem, max_dist, max_go, max_seq = create_max_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts)
+    train_set3, avdeg_atc, avdeg_chem, avdeg_dist, avdeg_go, avdeg_seq = create_avdeg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts, degree, avg_deg)
+    train_set4, max_deg_atc, max_deg_chem, max_deg_dist, max_deg_go, max_deg_seq = create_max_deg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts, degree, avg_deg)
+    train_set5, avg_deg_atc, avg_deg_chem, avg_deg_dist, avg_deg_go, avg_deg_seq = create_avg_deg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts, degree, avg_deg)
+    train_set6, sum_atc, sum_chem, sum_dist, sum_go, sum_seq = create_sum_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts)
+    train_set7, sum_deg_atc, sum_deg_chem, sum_deg_dist, sum_deg_go, sum_deg_seq = create_sum_deg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts, degree, avg_deg)
+    train_set8, min_atc, min_chem, min_dist, min_go, min_seq = create_min_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts)
+    train_set9, ratio_atc, ratio_chem, ratio_dist, ratio_go, ratio_seq = create_ratio_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts, degree, avg_deg)
+    train_set10, deg_atc, deg_chem, deg_dist, deg_go, deg_seq = create_deg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts, degree, avg_deg)
 
-start = time.time()
-filename = 'data/interacts.csv'
-atc_sim, chemical_sim, dist_sim, go_sim, ligand_sim, seq_sim, sideeffect_sim = read_similarities()
-interacts = read_interacts(filename)
-sim_keys = (chemical_sim.keys() & atc_sim.keys())  # keys of chem, dist, go, seq are same
-samples = select_pairs(interacts, sim_keys)
-degree, avg_deg = compute_avg_deg(samples)
-train_set, avg_atc, avg_chem, avg_dist, avg_go, avg_seq = create_avg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts)
-train_set2, max_atc, max_chem, max_dist, max_go, max_seq = create_max_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts)
-train_set3, avdeg_atc, avdeg_chem, avdeg_dist, avdeg_go, avdeg_seq = create_avdeg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts, degree, avg_deg)
-train_set4, max_deg_atc, max_deg_chem, max_deg_dist, max_deg_go, max_deg_seq = create_max_deg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts, degree, avg_deg)
-train_set5, avg_deg_atc, avg_deg_chem, avg_deg_dist, avg_deg_go, avg_deg_seq = create_avg_deg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts, degree, avg_deg)
-train_set6, sum_atc, sum_chem, sum_dist, sum_go, sum_seq = create_sum_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts)
-train_set7, sum_deg_atc, sum_deg_chem, sum_deg_dist, sum_deg_go, sum_deg_seq = create_sum_deg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts, degree, avg_deg)
-train_set8, min_atc, min_chem, min_dist, min_go, min_seq = create_min_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts)
-train_set9, ratio_atc, ratio_chem, ratio_dist, ratio_go, ratio_seq = create_ratio_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts, degree, avg_deg)
-train_set10, deg_atc, deg_chem, deg_dist, deg_go, deg_seq = create_deg_features(sim_keys, samples, atc_sim, chemical_sim, dist_sim, go_sim, seq_sim, interacts, degree, avg_deg)
+    trainset = []
+    common_keys = avg_atc.keys() & sim_keys
+    for key in common_keys:
+        # print(avg_atc[key], max_atc[key], max_chem[key], max_deg_atc[key], sum_atc[key], sum_deg_atc[key], atc_sim[key], chemical_sim[key], dist_sim[key], go_sim[key], seq_sim[key], samples[key])
+        trainset.append([avg_atc[key], max_atc[key], max_chem[key], max_deg_atc[key], sum_atc[key], sum_deg_atc[key], atc_sim[key], chemical_sim[key], dist_sim[key], go_sim[key], seq_sim[key], samples[key]])
+    trainset = np.array(trainset)
+    target = trainset.transpose()[11]
+    trainset = trainset.transpose()[0:11]
+    trainset = normalize(trainset, 'max')
+    trainset= trainset.transpose()
+    l = lr(penalty='l2', C=0.1, random_state=2, solver='liblinear', fit_intercept=True)
+    l.fit(trainset, target)
+    print(l.coef_ - l.intercept_)
 
+else:
+    filename = 'data/interacts_all.csv'
+    atc_sim, chemical_sim, dist_sim, go_sim, ligand_sim, seq_sim, sideeffect_sim = read_similarities()
+    interacts = read_interacts(filename)
+    sim_keys = (chemical_sim.keys() & atc_sim.keys())  # keys of chem, dist, go, seq are same
+    samples = select_pairs(interacts, sim_keys)
+    degree, avg_deg = compute_avg_deg(samples)
+    train_set, avg_atc, avg_chem, avg_dist, avg_go, avg_seq = create_avg_features(sim_keys, samples, atc_sim,
+                                                                                  chemical_sim, dist_sim, go_sim,
+                                                                                  seq_sim, interacts)
+    train_set2, max_atc, max_chem, max_dist, max_go, max_seq = create_max_features(sim_keys, samples, atc_sim,
+                                                                                   chemical_sim, dist_sim, go_sim,
+                                                                                   seq_sim, interacts)
+    train_set3, avdeg_atc, avdeg_chem, avdeg_dist, avdeg_go, avdeg_seq = create_avdeg_features(sim_keys, samples,
+                                                                                               atc_sim, chemical_sim,
+                                                                                               dist_sim, go_sim,
+                                                                                               seq_sim, interacts,
+                                                                                               degree, avg_deg)
+    train_set4, max_deg_atc, max_deg_chem, max_deg_dist, max_deg_go, max_deg_seq = create_max_deg_features(sim_keys,
+                                                                                                           samples,
+                                                                                                           atc_sim,
+                                                                                                           chemical_sim,
+                                                                                                           dist_sim,
+                                                                                                           go_sim,
+                                                                                                           seq_sim,
+                                                                                                           interacts,
+                                                                                                           degree,
+                                                                                                           avg_deg)
+    train_set5, avg_deg_atc, avg_deg_chem, avg_deg_dist, avg_deg_go, avg_deg_seq = create_avg_deg_features(sim_keys,
+                                                                                                           samples,
+                                                                                                           atc_sim,
+                                                                                                           chemical_sim,
+                                                                                                           dist_sim,
+                                                                                                           go_sim,
+                                                                                                           seq_sim,
+                                                                                                           interacts,
+                                                                                                           degree,
+                                                                                                           avg_deg)
+    train_set6, sum_atc, sum_chem, sum_dist, sum_go, sum_seq = create_sum_features(sim_keys, samples, atc_sim,
+                                                                                   chemical_sim, dist_sim, go_sim,
+                                                                                   seq_sim, interacts)
+    train_set7, sum_deg_atc, sum_deg_chem, sum_deg_dist, sum_deg_go, sum_deg_seq = create_sum_deg_features(sim_keys,
+                                                                                                           samples,
+                                                                                                           atc_sim,
+                                                                                                           chemical_sim,
+                                                                                                           dist_sim,
+                                                                                                           go_sim,
+                                                                                                           seq_sim,
+                                                                                                           interacts,
+                                                                                                           degree,
+                                                                                                           avg_deg)
+    train_set8, min_atc, min_chem, min_dist, min_go, min_seq = create_min_features(sim_keys, samples, atc_sim,
+                                                                                   chemical_sim, dist_sim, go_sim,
+                                                                                   seq_sim, interacts)
+    train_set9, ratio_atc, ratio_chem, ratio_dist, ratio_go, ratio_seq = create_ratio_features(sim_keys, samples,
+                                                                                               atc_sim, chemical_sim,
+                                                                                               dist_sim, go_sim,
+                                                                                               seq_sim, interacts,
+                                                                                               degree, avg_deg)
+    train_set10, deg_atc, deg_chem, deg_dist, deg_go, deg_seq = create_deg_features(sim_keys, samples, atc_sim,
+                                                                                    chemical_sim, dist_sim, go_sim,
+                                                                                    seq_sim, interacts, degree, avg_deg)
 
-##################
-trainset = []
-common_keys = avg_atc.keys() & sim_keys
-for key in common_keys:
-    # print(avg_atc[key], max_atc[key], max_chem[key], max_deg_atc[key], sum_atc[key], sum_deg_atc[key], atc_sim[key], chemical_sim[key], dist_sim[key], go_sim[key], seq_sim[key], samples[key])
-    trainset.append([avg_atc[key], max_atc[key], max_chem[key], max_deg_atc[key], sum_atc[key], sum_deg_atc[key], atc_sim[key], chemical_sim[key], dist_sim[key], go_sim[key], seq_sim[key], samples[key]])
-trainset = np.array(trainset)
-target = trainset.transpose()[11]
-trainset = trainset.transpose()[0:11]
-trainset = normalize(trainset, 'max')
-trainset= trainset.transpose()
-l = lr(penalty='l2', C=0.1, random_state=2, solver='liblinear', n_jobs=-1, fit_intercept=True)
-l.fit(trainset, target)
-print(l.coef_ - l.intercept_)
-##################
+    train1 = np.array(train_set)
+    target = train1.transpose()[5]
+    train1 = train1.transpose()[0:5]  # train1: avg_sim
+    train1 = normalize(train1, 'max')
 
-# train1 = np.array(train_set)
-# target = train1.transpose()[5]
-# train1 = train1.transpose()[0:5]  # train1: avg_sim
-# # train1 = train1.transpose()[0:1]
-# train1 = normalize(train1, 'max')
-#
-# train2 = np.array(train_set2)
-# train2 = train2.transpose()[0:5]  # train2: max_sim
-# # train2 = train2.transpose()[0:2]
-# train2 = normalize(train2, 'max')
-#
-# train3 = np.array(train_set3)
-# train3 = train3.transpose()[0:5]  # train3: avg_degree
-# # train31 = train3.transpose()[0:2]
-# # train32 = train3.transpose()[4:5]
-# # train3 = np.concatenate((train31, train32), 0)
-# train3 = normalize(train3, 'max')
-#
-# train4 = np.array(train_set4)
-# train4 = train4.transpose()[0:5]  # train4: max_sim*deg
-# train4 = normalize(train4, 'max')
-#
-# train5 = np.array(train_set5)
-# train5 = train5.transpose()[0:5]  # train5: avg_sim*deg
-# # train5 = train5.transpose()[0:1]
-# train5 = normalize(train5, 'max')
-#
-# train6 = np.array(train_set6)
-# train6 = train6.transpose()[0:5]  # train6: sum_sim
-# # train6 = train6.transpose()[0:1]
-# train6 = normalize(train6, 'max')
-#
-# train7 = np.array(train_set7)
-# train7 = train7.transpose()[0:5]  # train7: sum_(sim*deg)
-# # train71 = train7.transpose()[0:1]
-# # train72 = train7.transpose()[2:4]
-# # train7 = np.concatenate((train71, train72), 0)
-# train7 = normalize(train7, 'max')
-#
-# train8 = np.array(train_set8)
-# train8 = train8.transpose()[0:5]  # train8: min_sim
-# # train81 = train8.transpose()[0:2]
-# # train82 = train8.transpose()[4:5]
-# # train8 = np.concatenate((train81, train82), 0)
-# train8 = normalize(train8, 'max')
-#
-# train9 = np.array(train_set9)
-# train9 = train9.transpose()[0:5]  # train9: ratio(degree_a/num_b)
-# # train9 = train9.transpose()[4:5]
-# train9 = normalize(train9, 'max')
-#
-# train10 = np.array(train_set10)
-# train10 = train10.transpose()[0:5]  # train10: degree
-# # train10 = train10.transpose()[2:5]  # train10: degree
-# train10 = normalize(train10, 'max')
-#
-# t = np.concatenate((train1, train2, train3, train4, train5, train6, train7, train8, train9, train10),0)
-# t = t.transpose()
-# train = t
-#
-# # maxCs = []
-# # for kk in range(1,51):
-# sb = fs.SelectKBest(fs.f_regression, k=6)
-# train_new = sb.fit_transform(t, target)
-#
-# train = train_new
-# # print(sb.scores_)
-# # print(sb.scores_>1480)
-#
-# l = lr(penalty='l2', C=1.0, random_state=1, solver='liblinear', n_jobs=-1)
-# l.fit(train, target)
-# print(l.coef_)
-# C = [10, 100]
-# l = lrcv(Cs=C, cv=10, scoring='average_precision', penalty='l2', random_state=1, solver='liblinear', n_jobs=-1)
-# l.fit(train, target)
-# re = l.predict(train)
-# a = l.scores_[1].transpose()
-# print('average scores for Cs of 10 folds: ', [a[i].mean() for i in range(0, 2)])
-# # print('scores: ', l.scores_)
-# print('coefs for Cs: ', l.coef_)
-# # for i in range(0, 50):
-# #     print(float(l.coef_[0][i]))
-# # print('k=', kk, ' with best score ', max(a[i].mean() for i in range(0, 8)))
-#     # maxCs.append(max(a[i].mean() for i in range(0, 8)))
-#
-# end = time.time()
-# print(end-start)
-#
-# ########################### Save data ###############################
-# # save_data(avg_atc, 'avg_atc.csv')  # 1.754
-# # save_data(avg_chem, 'avg_chem.csv')  # 0.207
-# # save_data(avg_go, 'avg_go.csv')  # 0.207
-# # save_data(max_atc, 'max_atc.csv')  # 2.258
-# # save_data(max_chem, 'max_chem.csv')  # 1.919
-# # save_data(max_dist, 'max_dist.csv')  # 0.094
-# # save_data(max_deg_atc, 'max_deg_atc.csv')
-# # save_data(avdeg_atc, 'avdeg_atc.csv')  # 1.854
-# # save_data(avdeg_chem, 'avdeg_chem.csv')  # -1.78
-# # save_data(avdeg_go, 'avdeg_go.csv')  # 0.113
-# # save_data(avdeg_seq, 'avdeg_seq.csv')  # -3.47
-# # save_data(avg_deg_atc, 'avg_deg_atc.csv')  # -5.01
-# # save_data(sum_atc, 'sum_atc.csv')  # 3.701
-# # save_data(sum_deg_atc, 'sum_deg_atc.csv')  # 0.901
-# # save_data(sum_deg_dist, 'sum_deg_dist.csv')  # -2.643
-# # save_data(sum_deg_go, 'sum_deg_go.csv')  # -2.432
-# # save_data(min_atc, 'min_atc.csv')  # 2.429
-# # save_data(min_chem, 'min_chem.csv')  # -1.517
-# # save_data(min_dist, 'min_dist.csv')  # -0.113
-# # save_data(min_seq, 'min_seq.csv')  # -1.62
-# # save_data(ratio_atc, 'ratio_atc.csv')  # -0.072
-# # save_data(ratio_chem, 'ratio_chem.csv')  # -0.475
-# # save_data(ratio_seq, 'ratio_seq.csv')  # -0.954
-# # save_data(deg_dist, 'deg_dist.csv')  # 1.003
-# # save_data(deg_go, 'deg_go.csv')  # 0.359
-# # save_data(deg_chem, 'deg_chem.csv')  # 0.359
-# # save_data(deg_dist, 'deg_dist.csv')  # 1.517
-# print('over')
-# #####################################################################
-#
-# # plt.interactive(False)
-# # ax = range(1,51)
-# # plt.plot(ax, maxCs, 'r.')
-# # plt.show()
-#
-# # logistic = lr(penalty='l1', C=1.0, random_state=1, solver='liblinear', n_jobs=-1)
-# # logistic.fit(train, target)
-# # re = logistic.predict(train)
-# # auroc = roc_auc_score(target, re)
-# # aupr = aupr_score(target, re)
-# #
-# # print('roc: ', auroc)
-# # print('aupr: ', aupr)
-# # print(logistic.coef_)
-#
-#
-# ############################# save integrated similarity######################################
-# # integrated_sim = {}
-# # for key in avg_atc:
-# #     integrated_sim[key] = 1.6*avg_atc[key] + 1.91*avg_chem[key] + 0.23*avg_dist[key] + 0.68*avg_go[key] + 0.726*avg_seq[key]
-#
+    train2 = np.array(train_set2)
+    train2 = train2.transpose()[0:5]  # train2: max_sim
+    train2 = normalize(train2, 'max')
+
+    train3 = np.array(train_set3)
+    train3 = train3.transpose()[0:5]  # train3: avg_degree
+    train3 = normalize(train3, 'max')
+
+    train4 = np.array(train_set4)
+    train4 = train4.transpose()[0:5]  # train4: max_sim*deg
+    train4 = normalize(train4, 'max')
+
+    train5 = np.array(train_set5)
+    train5 = train5.transpose()[0:5]  # train5: avg_sim*deg
+    train5 = normalize(train5, 'max')
+
+    train6 = np.array(train_set6)
+    train6 = train6.transpose()[0:5]  # train6: sum_sim
+    train6 = normalize(train6, 'max')
+
+    train7 = np.array(train_set7)
+    train7 = train7.transpose()[0:5]  # train7: sum_(sim*deg)
+    train7 = normalize(train7, 'max')
+
+    train8 = np.array(train_set8)
+    train8 = train8.transpose()[0:5]  # train8: min_sim
+    train8 = normalize(train8, 'max')
+
+    train9 = np.array(train_set9)
+    train9 = train9.transpose()[0:5]  # train9: ratio(degree_a/num_b)
+    train9 = normalize(train9, 'max')
+
+    train10 = np.array(train_set10)
+    train10 = train10.transpose()[0:5]  # train10: degree
+    train10 = normalize(train10, 'max')
+
+    t = np.concatenate((train1, train2, train3, train4, train5, train6, train7, train8, train9, train10),0)
+    t = t.transpose()
+
+    sb = fs.SelectKBest(fs.f_regression, k=6)
+    re = sb.fit(t, target)
+    print(sb.scores_)
