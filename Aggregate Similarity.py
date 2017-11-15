@@ -1,13 +1,8 @@
 import numpy as np
-import time
 import math
 from sklearn.linear_model import LogisticRegression as lr
-from sklearn.metrics import roc_auc_score
-from sklearn.metrics import average_precision_score as aupr_score
 from sklearn.preprocessing import normalize
-from sklearn.linear_model import LogisticRegressionCV as lrcv
 import sklearn.feature_selection as fs
-import matplotlib.pyplot as plt
 
 def read_similarities():  # all keys are order sensitive
     chemical_sim = open('data/chemicalsimilarity.csv')
